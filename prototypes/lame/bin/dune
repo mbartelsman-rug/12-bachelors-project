@@ -1,0 +1,4 @@
+(executable
+ (public_name lame)
+ (name main)
+ (libraries lame base))

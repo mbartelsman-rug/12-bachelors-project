@@ -1,0 +1,126 @@
+(* Unspecified types and terms *)
+type int
+
+val zero: int
+val one: int
+val add: int → int → int
+val mul: int → int → int
+val succ: int → int
+val opp: int → int
+
+
+(* Specified types and terms *)
+type nat =
+| Zero
+| Succ nat
+
+val zero': nat = Zero
+val one': nat = Succ zero'
+
+val add': nat → nat → nat =
+	λ x : nat →
+	λ y : nat →
+	branch
+		let Zero = y in x
+	or
+		let Succ y' = y in
+		add' x y'
+	end
+
+
+(* Naming arguments *)
+val succ' (x:nat): nat =
+	Succ x
+
+
+(* Polymorphism*)
+type sum<a,b> =
+| Left a
+| Right b
+
+val injl<a,b> (a:a): sum<a,b> =
+	Left<a,b> a
+
+val injr<a,b> (b:b): sum<a,b> =
+	Right<a,b> b
+
+
+(* Aliases *)
+type option<a> := sum<(), a>
+
+val none<a>: option<a> =
+	Left<(),a> ()
+
+val some<a> (a:a): option<a> =
+	Right<(),a> a
+
+val get<a> (o:option<a>): a =
+	let Right a = o in
+	a
+
+val is_None<a> (o:option<a>): () =
+	let Left = o in
+	(* A constructor C with no arguments is a metanotation for C () *)
+	()
+
+
+(* Records *)
+type euler = (
+	re: int,
+	im: int
+)
+
+val norm (e:euler): int =
+	let re2 = mul e.re e.re in
+	let im2 = mul e.im e.im in
+	add re2 im2
+
+val add'' (e:(euler, euler)): euler =
+	let (re=re1, im=im1) = e.1 in
+	let (re=re2, im=im2) = e.2 in
+	let re = add re1 re2 in
+	let im = add im1 im2 in
+	(re = re, im = im)
+
+val conj (e:euler): euler =
+	let im' = opp e.im in
+	e <- (im = im')
+
+(* Special comments *)
+(** You can set special comments by beginning with two stars *)
+type list<a> =
+	| Nil (** Depending on where they are placed, they are bound either to a type,
+		a constructor, or a declaration *)
+	| Cons (a, list<a>)
+
+
+(* Binding operators *)
+val opt<a,b> (oa:option<a>) (f:a → option<b>): option<b> =
+	branch
+		let () = is_None<a> oa in
+		none<b>
+	or
+		let a = get<a> oa in
+		f a
+	end
+
+val pred (n:nat): option<nat> =
+	branch
+		let Zero = n in none<nat>
+	or
+		let Succ m = n in some<nat> m
+	end
+
+binder ? := opt
+
+val sub (m:nat) (n:nat): option<nat> =
+	branch
+		let Zero = n in
+		some<nat> m
+	or
+		let Succ n' = n in
+		let m' =? pred m in
+		sub m' n'
+	end
+
+

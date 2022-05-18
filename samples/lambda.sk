@@ -1,0 +1,29 @@
+type ident
+
+type clos =
+| Clos (ident, lterm, env)
+type env
+
+type lterm =
+| Lam (ident, lterm)
+| Var ident
+| App (lterm, lterm)
+
+val extEnv : (env, ident, clos) → env
+val getEnv : (ident, env) → clos
+
+val eval (s:env) (l:lterm): clos =
+	branch
+		let Lam (x, t) = l in
+		Clos (x, t, s)
+	or
+		let Var x = l in
+		getEnv (x, s)
+	or
+		let App (t1, t2) = l in
+		let Clos (x, t, s') = eval s t1 in
+		let w = eval s t2 in
+		let s'' = extEnv (s', x, w) in
+		eval s'' t
+	end
+

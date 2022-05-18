@@ -1,0 +1,180 @@
+(* option monad *)
+type option<a> =
+| None
+| Some a
+
+val opt<a, b> (o:option<a>) (f:(a → option<b>)): option<b> =
+	branch
+		let None = o in None<b>
+	or
+		let Some x = o in f x
+	end
+
+type ident
+type lit
+
+type value
+
+type env
+type int
+
+type list<a> =
+| Nil
+| Cons (a, list<a>)
+
+type mlterm =
+| Lam (ident, mlterm)
+| Var ident
+| App (mlterm, mlterm)
+| Const lit
+| Plus (mlterm, mlterm)
+| IfZero (mlterm, mlterm, mlterm)
+| Constr (ident, list<mlterm>)
+| Match (mlterm, list<(pattern, mlterm)>)
+
+type pattern =
+| PWildcard
+| PVar ident
+| POr (pattern, pattern)
+| PConstr (ident, list<pattern>)
+
+
+val mkClos : (ident, mlterm, env) → value
+val mkInt : int → value
+val getClos : value → (ident, mlterm, env)
+val getInt : value → int
+
+val mkConstr : (ident, list<value>) → value
+val isConstrWithName : (ident, value) → list<value>
+val isNotConstrWithName : (ident, value) → ()
+
+val extEnv : (env, ident, value) → env
+val getEnv : (ident, env) → value
+
+val intOfLit : lit → int
+val plus : (int, int) → int
+val isZero : int → ()
+val isNotZero : int → ()
+
+val match_failure : () → value
+
+val eval ((env,t):(env, mlterm)): value =
+branch
+	let Lam (x, body) = t in
+	mkClos (x, body, env)
+or
+	let Var v = t in
+	getEnv (v, env)
+or
+	let App (t1, t2) = t in
+	let f = eval (env, t1) in
+	let (x, body, env1) = getClos (f) in
+	let v = eval (env, t2) in
+	let env2 = extEnv (env1, x, v) in
+	eval (env2, body)
+or
+	let Const n = t in
+	let x = intOfLit (n) in
+	mkInt (x)
+or
+	let Plus (t1, t2) = t in
+	let v1 = eval (env, t1) in
+	let x1 = getInt (v1) in
+	let v2 = eval (env, t2) in
+	let x2 = getInt (v2) in
+	let x = plus (x1, x2) in
+	mkInt (x)
+or
+	let IfZero (cond, ifz, ifnz) = t in
+	let v = eval (env, cond) in
+	let x = getInt (v) in
+	branch
+		isZero (x) ;
+		eval (env, ifz)
+	or
+		isNotZero (x) ;
+		eval (env, ifnz)
+	end
+or
+	let Constr (name, tl) = t in
+	let vl = eval_list (env, tl) in
+	mkConstr (name, vl)
+or
+	let Match (tm, m) = t in
+	let v = eval (env, tm) in
+	mlmatching (env, v, m)
+end
+
+val eval_list ((env, t):(env, list<mlterm>)): list<value> =
+branch
+	let Nil = t in
+	Nil<value>
+or
+	let Cons (t, tl) = t in
+	let v = eval (env, t) in
+	let vl = eval_list (env, tl) in
+	Cons<value> (v, vl)
+end
+
+val mlmatching ((env, v, l):(env, value, list<(pattern, mlterm)>)): value =
+branch
+	let Nil = l in
+	match_failure ()
+or
+	let Cons (x, m) = l in
+	let (p, t) = x in
+	let env1opt = eval_pattern (env, v, p) in
+	branch
+		let Some env1 = env1opt in
+		eval (env1, t)
+	or
+		let None = env1opt in
+		mlmatching (env, v, m)
+	end
+end
+
+val eval_pattern ((env, v, p):(env, value, pattern)): option<env> =
+branch
+	let PWildcard = p in
+	Some<env> env
+or
+	let PVar x = p in
+	let env1 = extEnv (env, x, v) in
+	Some<env> (env1)
+or
+	let POr (p1, p2) = p in
+	let env1opt = eval_pattern (env, v, p1) in
+	branch
+		let Some env1 = env1opt in
+		Some<env> env1
+	or
+		let None = env1opt in
+		eval_pattern (env, v, p2)
+	end
+or
+	let PConstr (name, pl) = p in
+	branch
+		let args = isConstrWithName (name, v) in
+		pattern_list (env, args, pl)
+	or
+		isNotConstrWithName (name, v) ;
+		None<env>
+	end
+end
+
+val pattern_list ((env, lv, lp):(env, list<value>, list<pattern>)): option<env> =
+branch
+	let (Nil, Nil) = (lv, lp) in
+	Some<env> (env)
+or
+	let (Cons _, Nil) = (lv, lp) in
+	None<env>
+or
+	let (Nil, Cons _) = (lv, lp) in
+	None<env>
+or
+	let (Cons (v, t), Cons (p, pl)) = (lv, lp) in
+	let env1 =%opt eval_pattern (env, v, p) in
+	pattern_list (env1, t, pl)
+end
+

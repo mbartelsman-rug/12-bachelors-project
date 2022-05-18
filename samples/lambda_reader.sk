@@ -1,0 +1,39 @@
+type env
+
+type reader<a> := env → a
+val ret<a> (v:a) : reader<a> = λ_:env → v
+val bind<a,b> (w:reader<a>) (f:a → reader<b>) : reader<b> =
+  λe:env → let v = w e in f v e
+val ask : reader<env> = λe:env → e
+val local<a> (e:env) (f: () → reader<a>) : reader<a> = λ_:env → f () e
+
+type ident
+
+val extEnv : (env, ident, clos) → env
+val getEnv : (ident, env) → clos
+
+type clos =
+| Clos (ident, term, env)
+
+type term =
+| Lam (ident, term)
+| Var ident
+| App (term, term)
+
+val eval (t:term): reader<clos> =
+  branch
+    let Lam (x, tb) = t in
+    let e =%bind ask in
+    ret<clos> (Clos(x, tb, e))
+  or
+    let Var x = t in
+    let e =%bind ask in
+    let v = getEnv (x, e) in
+    ret<clos> v
+  or
+    let App (t1, t2) = t in
+    let Clos (x, tb, e) =%bind eval t1 in
+    let v =%bind eval t2 in
+    extEnv (e, x, v);%local
+    eval tb
+  end

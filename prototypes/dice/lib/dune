@@ -1,0 +1,3 @@
+(library
+ (name dice)
+ (libraries base))

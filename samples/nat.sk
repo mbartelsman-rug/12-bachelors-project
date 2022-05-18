@@ -1,0 +1,562 @@
+(* * Natural numbers *)
+
+type nat = | O | S nat
+
+type boolean = | True | False
+val notb (b:boolean): boolean =
+	branch let True = b in False or let False = b in True end
+
+(* ** Comparison between positive integers *)
+
+(* Check whether m = n *)
+val eq (m:nat) (n:nat): boolean =
+	branch
+		let (O, O) = (m, n) in
+		True
+	or
+		let (O, S _) = (m, n) in
+		False
+	or
+		let (S _, O) = (m, n) in
+		False
+	or
+		let (S m, S n) = (m, n) in
+		eq m n
+	end
+
+(* Check whether m ≤ n *)
+val le (m:nat) (n:nat): boolean =
+	branch
+		let O = m in
+		True
+	or
+		let S _ = m in
+		let O = n in
+		False
+	or
+		let S m = m in
+		let S n = n in
+		le m n
+	end
+
+(* Check whether m < n *)
+val lt (m:nat) (n:nat): boolean =
+	le (S m) n
+
+(* Check whether m ≥ n *)
+val ge (m:nat) (n:nat): boolean =
+	le n m
+
+(* Check whether m > n *)
+val gt (m:nat) (n:nat): boolean =
+	lt n m
+
+
+
+
+(* ** Arithmetic operations *)
+
+(* Addition *)
+val add (m:nat) (n:nat): nat =
+	branch
+		let O = n in m
+	or
+		let S n = n in
+		let s = add m n in
+		S s
+	end
+
+(* Substraction *)
+val sub (m:nat) (n:nat): nat =
+	branch
+		let O = n in m
+	or
+		let S n = n in
+		let S m = m in
+		sub m n
+	end
+
+(* Multiplication *)
+val mul (m:nat) (n:nat): nat =
+	branch
+		let O = n in O
+	or
+		let S n = n in
+		let p = mul m n in
+		add p m
+	end
+
+(* Division *)
+val div (m:nat) (n:nat): nat =
+	let S n' = n in
+	branch
+		let True = le m n' in
+		O
+	or
+		let m' = sub m n in
+		let d = div m' n in
+		S d
+	end
+
+(* Modulo *)
+val mod (m:nat) (n:nat): nat =
+	branch
+		let True = lt m n in
+		m
+	or
+		let False = lt m n in
+		let s = sub m n in
+		mod s n
+	end
+
+(* Power *)
+val pow (m:nat) (n:nat): nat =
+	branch
+		let O = n in S O
+	or
+		let S n = n in
+		let p = pow m n in
+		mul m p
+	end
+
+
+
+
+(* ** Miscallenous operations *)
+
+(* Check whether n is even *)
+val even (n:nat): boolean =
+	branch
+		let O = n in True
+	or
+		let S O = n in False
+	or
+		let S (S n) = n in
+		even n
+	end
+
+(* Check whether n is odd *)
+val odd (n:nat): boolean =
+	let b = even n in
+	notb b
+
+val max (m:nat) (n:nat): nat =
+	branch
+		let O = m in n
+	or
+		let O = n in m
+	or
+		let S m = m in
+		let S n = n in
+		let v = max m n in
+		S v
+	end
+
+val min (m:nat) (n:nat): nat =
+	let v = max m n in
+	let s = add m n in
+	sub s v
+
+val gcd (a:nat) (b:nat): nat =
+	branch
+		let O = a in b
+	or
+		let O = b in a
+	or
+		let S _ = b in
+		let m = mod b a in
+		gcd m a
+	end
+
+
+
+
+
+
+
+
+(* * Relative numbers *)
+
+(* Pos O is the same as Neg O, but none of the below functions ever returns Neg O*)
+type rel =
+| Pos nat
+| Neg nat
+
+(* Usual construction of relative numbers: defined by the difference of two
+ * natural numbers *)
+type rel' := (nat, nat)
+
+val rel_to_rel' (z:rel): rel' =
+	branch
+		let Pos n = z in (n, O)
+	or
+		let Neg n = z in (O, n)
+	end
+
+val rel'_to_rel (z:rel'): rel =
+	let (m, n) = z in
+	subz (Pos m) (Pos n)
+
+
+(* ** Basic operations *)
+
+(* Get the successor of a number *)
+val succz (n:rel): rel =
+	branch
+		let Pos n = n in Pos (S n)
+	or
+		let Neg O = n in Pos (S O)
+	or
+		let Neg (S O) = n in Pos O
+	or
+		let Neg (S (S n)) = n in Neg (S n)
+	end
+
+(* Get the predecessor of a number *)
+val predz (n:rel): rel =
+	branch
+		let Neg n = n in Neg (S n)
+	or
+		let Pos O = n in Neg (S O)
+	or
+		let Pos (S n) = n in Pos n
+	end
+
+(* Get the absolute value of a number *)
+val abs (n:rel): nat =
+	branch
+		let Neg n = n in n
+	or
+		let Pos n = n in n
+	end
+
+(* Get the opposite of a number *)
+val opp (n:rel): rel =
+	branch
+		let Pos (S n) = n in Neg (S n)
+	or
+		let Pos O = n in Pos O
+	or
+		let Neg n = n in Pos n
+	end
+
+
+
+
+
+(* ** Comparison between relative integers *)
+
+(* Check whether m = n *)
+val eqz (m:rel) (n:rel): boolean =
+	branch
+		let (Pos m, Pos n) = (m, n) in eq m n
+	or
+		let (Neg m, Neg n) = (m, n) in eq m n
+	or
+		let (m, n) =
+			branch
+				let (Pos m, Neg n) = (m, n) in
+				(m, n)
+			or
+				let (Neg m, Pos n) = (m, n) in
+				(m, n)
+			end
+		in
+		branch
+			let O = m in
+			let O = n in
+			True
+		or
+			let S _ = m in
+			False
+		or
+			let S _ = n in
+			False
+		end
+	end
+
+(* Check whether m ≤ n *)
+val lez (m:rel) (n:rel): boolean =
+	branch
+		let (Pos m, Pos n) = (m, n) in
+		le m n
+	or
+		let (Neg m, Neg n) = (m, n) in
+		le n m
+	or
+		let (Neg _, Pos _) = (m, n) in
+		True
+	or
+		let (Pos m, Neg n) = (m, n) in
+		branch
+			let True = eq O m in
+			let True = eq O n in
+			True
+		or
+			let False = eq O m in
+			False
+		or
+			let False = eq O n in
+			False
+		end
+	end
+
+(* Check whether m < n *)
+val ltz (m:rel) (n:rel): boolean =
+	let m = succz m in
+	lez m n
+
+(* Check whether m ≥ n *)
+val gez (m:rel) (n:rel): boolean =
+	lez n m
+
+(* Check whether m > n *)
+val gtz (m:rel) (n:rel): boolean =
+	ltz n m
+
+
+
+
+(* ** Arithmetic operations *)
+
+(* Addition *)
+val addz (m:rel) (n:rel): rel =
+	branch
+		let (Pos m, Pos n) = (m, n) in
+		let s = add m n in
+		Pos s
+	or
+		let (Neg m, Neg n) = (m, n) in
+		let s = add m n in
+		branch
+			let True = eq O s in
+			Pos O
+		or
+			let False = eq O s in
+			Neg s
+		end
+	or
+		let (Pos m, Neg n) = (m, n) in
+		branch
+			let True = ge m n in
+			let s = sub m n in
+			Pos s
+		or
+			let True = lt m n in
+			let s = sub n m in
+			Neg s
+		end
+	or
+		let (Neg m, Pos n) = (m, n) in
+		addz (Pos n) (Neg m)
+	end
+
+(* Substraction *)
+val subz (m:rel) (n:rel): rel =
+	let n = opp n in
+	addz m n
+
+(* Multiplication *)
+val mulz (m:rel) (n:rel): rel =
+	branch
+		let (Pos m, Pos n) = (m, n) in
+		let p = mul m n in
+		Pos p
+	or
+		let (Pos m, Neg n) = (m, n) in
+		let p = mul m n in
+		opp (Pos p)
+	or
+		let (Neg m, _) = (m, n) in
+		let p = mulz (Pos m) n in
+		opp p
+	end
+
+(* Division *)
+val divz (m:rel) (n:rel): rel =
+	branch
+		let (Pos m, Pos n) = (m, n) in
+		let d = div m n in
+		Pos d
+	or
+		let (Pos m, Neg n) = (m, n) in
+		let d = div m n in
+		opp (Pos d)
+	or
+		let (Neg m, _) = (m, n) in
+		let d = divz (Pos m) n in
+		opp d
+	end
+
+
+
+
+(* ** Miscallenous operations *)
+
+(* Check whether n is even *)
+val evenz (n:rel): boolean =
+	let n = abs n in
+	even n
+
+(* Check whether n is odd *)
+val oddz (n:rel): boolean =
+	let b = evenz n in
+	notb b
+
+val maxz (m:rel) (n:rel): rel =
+	branch
+		let (Pos m, Pos n) = (m, n) in
+		let v = max m n in
+		Pos v
+	or
+		let (Neg m, Neg n) = (m, n) in
+		let v = min m n in
+		opp (Pos v)
+	or
+		let (Neg _, Pos _) = (m, n) in n
+	or
+		let (Pos _, Neg _) = (m, n) in m
+	end
+
+val minz (m:rel) (n:rel): rel =
+	let v = maxz m n in
+	let s = addz m n in
+	subz s v
+
+(* [sgn m n] takes the sign of [m] and applies it to [n] *)
+val sgn (m:rel) (n:rel): rel =
+	branch
+		let Pos O = m in
+		Pos O
+	or
+		let Neg O = m in
+		Pos O
+	or
+		let Pos (S _) = m in
+		n
+	or
+		let Neg (S _) = m in
+		opp n
+	end
+
+
+
+
+
+(* * Rational numbers *)
+
+(* (n, O) means nothing, so we suppose that it never appears. If it does,
+ * the behaviour is unspecified. It may fail or send any random result.
+ * Every result generated by the functions below will be in reduced form *)
+type rat := (rel, nat)
+
+(* ** Basic operations *)
+
+(* Get the reduced form of a rational number *)
+val reduce (q:rat): rat =
+	let (n, d) = q in
+	let n' = abs n in
+	let g = gcd n' d in
+	let new_n = divz n (Pos g) in
+	let new_d = div d g in
+	(new_n, new_d)
+
+(* Check whether a number is an integer, and return said integer *)
+val isInt (q:rat): boolean =
+	let(_, den) = reduce q in
+	eq (S O) den
+
+(* If a number is an integer, return said integer *)
+val getInt (q:rat): rel =
+	let (nom, den) = reduce q in
+	let S O = den in
+	nom
+
+(* Get the opposite of a number *)
+val oppq ((n,d):rat): rat =
+	let n' = opp n in
+	reduce (n', d)
+
+(* Get the invert of a number *)
+val inv ((n,d):rat): rat =
+	let False = eqz (Pos O) n in
+	let n' = abs n in
+	let d' = sgn n (Pos d) in
+	reduce (d', n')
+
+
+(* ** Comparison between rational numbers *)
+
+(* Check whether m = n *)
+val eqq (q1:rat) (q2:rat): boolean =
+	let ((n1, d1), (n2, d2)) = (q1, q2) in
+	let pn1d2 = mulz n1 (Pos d2) in
+	let pn2d1 = mulz n2 (Pos d1) in
+	eqz pn1d2 pn2d1
+
+(* Check whether m ≤ n *)
+val leq ((n1,d1):rat) ((n2,d2):rat): boolean =
+	let pn1d2 = mulz n1 (Pos d2) in
+	let pn2d1 = mulz n2 (Pos d1) in
+	lez pn1d2 pn2d1
+
+(* Check whether m < n *)
+val ltq ((n1,d1):rat) ((n2,d2):rat): boolean =
+	let pn1d2 = mulz n1 (Pos d2) in
+	let pn2d1 = mulz n2 (Pos d1) in
+	ltz pn1d2 pn2d1
+
+(* Check whether m ≥ n *)
+val geq (a:rat) (b:rat): boolean =
+	leq b a
+
+(* Check whether m > n *)
+val gtq (a:rat) (b:rat): boolean =
+	ltq b a
+
+
+
+(* ** Arithmetic operations *)
+
+(* Addition *)
+val addq ((n1,d1):rat) ((n2, d2):rat): rat =
+	let pn1d2 = mulz n1 (Pos d2) in
+	let pn2d1 = mulz n2 (Pos d1) in
+	let pd1d2 = mul d1 d2 in
+	let num = addz pn1d2 pn2d1 in
+	reduce (num, pd1d2)
+
+(* Substraction *)
+val subq (a:rat) (b:rat): rat =
+	let mb = oppq b in
+	addq a mb
+
+(* Multiplication *)
+val mulq ((n1,d1):rat) ((n2,d2):rat): rat =
+	let n = mulz n1 n2 in
+	let d = mul d1 d2 in
+	reduce (n, d)
+
+(* Division *)
+val divq (a:rat) (b:rat): rat =
+	let b' = inv b in
+	mulq a b'
+
+
+
+
+(* ** Miscallenous operations *)
+
+val maxq (a:rat) (b:rat): rat =
+	branch
+		let True = leq a b in b
+	or
+		let False = leq a b  in a
+	end
+
+val minq (a:rat) (b:rat): rat =
+	branch
+		let True = leq a b in a
+	or
+		let False = leq a b in b
+	end

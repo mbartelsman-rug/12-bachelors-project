@@ -1,0 +1,65 @@
+type ident
+type bt
+
+type tp =
+| Base bt
+| Arrow (tp, tp)
+
+type lterm =
+| Lam (ident, tp, lterm)
+| Var ident
+| App (lterm, lterm)
+
+type env
+
+val getEnv : (ident, env) → (env, lterm)
+val extEnv : (env, ident, lterm, env) → env
+
+val eval ((s,t):(env, lterm)): (ident, lterm, env) =
+branch
+	let Lam (x, _, t) = t in
+	(x, t, s)
+or
+	let Var x = t in
+	let (s', t') = getEnv(x, s) in
+	eval(s', t')
+or
+	let App (t1, t2) = t in
+	let (x, t, s') = eval (s, t1) in
+	let s'' = extEnv(s', x, t2, s) in
+	eval(s'', t)
+end
+
+type tpenv
+
+val getTpEnv : (ident, tpenv) → tp
+val extTpEnv : (tpenv, ident, tp) → tpenv
+val eqBase : bt → bt → ()
+
+val eqType (t1:tp) (t2:tp): () =
+branch
+	let (Arrow(tpa, tpr), Arrow (tpa', tpr')) = (t1, t2) in
+	eqType tpa tpa' ;
+	eqType tpr tpr'
+or
+	let (Base b, Base b') = (t1, t2) in
+	eqBase b b'
+end
+
+val checktype (g:tpenv) (t:lterm): tp =
+branch
+	let Lam(x, tp, t) = t in
+	let g' = extTpEnv(g, x, tp) in
+	let tp' = checktype g' t in
+	Arrow(tp, tp')
+or
+	let Var x = t in
+	getTpEnv(x, g)
+or
+	let App (t1, t2) = t in
+	let tpf = checktype g t1 in
+	let tpa = checktype g t2 in
+	let Arrow (tpa', tpres) = tpf in
+	let () = eqType tpa tpa' in
+	tpres
+end

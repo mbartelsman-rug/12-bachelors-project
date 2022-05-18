@@ -1,0 +1,4 @@
+(executable
+ (public_name dice)
+ (name main)
+ (libraries dice base))

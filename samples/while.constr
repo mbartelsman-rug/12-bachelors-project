@@ -1,0 +1,49 @@
+type program = stmt
+
+type globalcontext
+type vint
+type vbool
+type lit
+type ident
+
+type localcontext = unit
+
+type value = vint * vbool
+type state = (ident, value) map
+
+val litToVal : lit -> value
+val write : ident * state * value -> state
+val add : vint * vint -> vint
+val eq : vint * vint -> vbool
+val neg : vbool -> vbool
+val isTrue : localcontext * vbool -> localcontext list
+val isFalse : localcontext * vbool -> localcontext list
+
+val int_bot : unit -> vint
+val int_is_bot : localcontext * vint -> (localcontext * vint) list
+val bool_bot : unit -> vbool
+val bool_is_bot : localcontext * vbool -> (localcontext * vbool) list
+
+rule in var expr : state
+rule out var expr : value
+rule in var stmt : state
+rule out var stmt : state
+rule in expr(pp, sigmas, state) = [((), state)]
+rule out expr(pp, sigmas, sigma, r) = r
+rule in stmt(pp, simgas, state) = [((), state)]
+rule out stmt(pp, sigmas, sigma, r) = r
+hook in expr(pp, sigmas, sigma, state, term_) = [(sigmas, state)]
+hook out expr(pp, sigmas, sigma, result) = [(sigma, result)]
+hook in stmt(pp, sigmas, sigma, state, term_) = [(sigmas, state)]
+hook out stmt(pp, sigmas, sigma, result) = [(sigma, result)]
+
+filter litToVal(pp, sigmas, sigma, x) = [(sigma, join pp1 in x, litToVal(subterm(pp1)))]
+filter read(pp, sigmas, sigma, x, s) = [(sigma, join pp1 in x, s[subterm(pp1)])]
+filter write(pp, sigmas, sigma, x, s, v) = [(sigma, join pp1 in x, write(subterm(pp1), s, v))]
+filter isInt(pp, sigmas, sigma, v) = let (i, b) = v in int_is_bot(sigma, i)
+filter isBool(pp, sigmas, sigma, v) = let (i, b) = v in bool_is_bot(sigma, b)
+filter add(pp, sigmas, sigma, i1, i2) = [(sigma, (add(i1, i2), bool_bot ()))]
+filter eq(pp, sigmas, sigma, i1, i2) = [(sigma, (int_bot (), eq(i1, i2)))]
+filter neg(pp, sigmas, sigma, b) = [(sigma, (int_bot (), neg(b)))]
+filter isTrue(pp, sigmas, sigma, b) = isTrue(sigma, b)
+filter isFalse(pp, sigmas, sigma, b) = isFalse(sigma, b)

@@ -1,0 +1,149 @@
+type ident
+type state
+type othervalue
+
+type value =
+| Vpair (value, value)
+| Vtrue
+| Vfalse
+| Vclos (ident, lambdaterm, state)
+| Vfix lambdaterm
+| Vother othervalue
+
+type lambdaterm =
+| Val value
+| Var ident
+| Plus (lambdaterm, lambdaterm)
+| Equals (lambdaterm, lambdaterm)
+| Andl (lambdaterm, lambdaterm)
+| Not lambdaterm
+| Lam (ident, lambdaterm)
+| Fix lambdaterm
+| App (lambdaterm, lambdaterm)
+| While (lambdaterm, lambdaterm, lambdaterm)
+| For (ident, lambdaterm, lambdaterm, lambdaterm, lambdaterm)
+| Let (ident, lambdaterm, lambdaterm)
+| If (lambdaterm, lambdaterm, lambdaterm)
+| Pair (lambdaterm, lambdaterm)
+| Right lambdaterm
+| Left lambdaterm
+
+val add : value → value → value
+val eq : value → value → value
+val read : ident → state → value
+val write : ident → state → value → state
+val leq : value → value → value
+val succ : value → value
+
+val neg  (v:value): value =
+branch
+	let Vtrue = v in Vfalse
+or
+	let Vfalse = v in Vtrue
+end
+
+val eval (s:state) (t:lambdaterm): value =
+branch
+	let Val v = t in v
+or
+	let Var x = t in
+	read x s
+or
+	let Plus (t1, t2) = t in
+	let v1 = eval s t1 in
+	let v2 = eval s t2 in
+	add v1 v2
+or
+	let Equals (t1, t2) = t in
+	let v1 = eval s t1 in
+	let v2 = eval s t2 in
+	eq v1 v2
+or
+	let Andl (t1, t2) = t in
+	let v = eval s t1 in
+	branch
+		let Vtrue = v in
+		eval s t2
+	or
+		let Vfalse = v in
+		Vfalse
+	end
+or
+	let Not t' = t in
+	let v = eval s t' in
+	neg v
+or
+	let Lam (x, t') = t in
+	Vclos (x, t', s)
+or
+	let Fix t' = t in
+	Vfix t'
+or
+	let App (t1, t2) = t in
+	let v = eval s t1 in
+	branch
+		let Vfix f = v in
+		eval s (App(App(f,Fix(f)),t2))
+	or
+		let Vclos (x, t', s') = v in
+		let v2 = eval s t2 in
+		let s'' = write x s' v2 in
+		eval s'' t'
+	end
+or
+	(* weird While that doesnt modify the state *)
+	(* we compute tf(..(tf(tx)..) until condition tp is met *)
+	let While (tp, tf, tx) = t in
+	let v = eval s (App (tp, tx)) in
+	branch
+		let Vtrue = v in
+		let vr = eval s (App (tf, tx)) in
+		eval s (While (tp, tf, Val vr))
+	or
+		let Vfalse = v in
+		eval s tx
+	end
+or
+	let For (x, low, high, tf, tin) = t in
+	let vlow = eval s low in
+	let vhigh = eval s high in
+	let comp = leq vlow vhigh in
+	branch
+		let Vtrue = comp in
+		let s' = write x s vlow in
+		let vin = eval s' (App (tf, tin)) in
+		let vsucc = succ vlow in
+		eval s' (For (x, Val vsucc, Val vhigh, tf, Val vin))
+	or
+		let Vtrue = comp in
+		eval s tin
+	end
+or
+	let Let (x, t1, t2) = t in
+	let v1 = eval s t1 in
+	let s' = write x s v1 in
+	eval s' t2
+or
+	let If (t1, t2, t3) = t in
+	let v = eval s t1 in
+	branch
+		let Vtrue = v in
+		eval s t2
+	or
+		let Vfalse = v in
+		eval s t3
+	end
+or
+	let Pair (t1, t2) = t in
+	let v1 = eval s t1 in
+	let v2 = eval s t2 in
+	Vpair (v1, v2)
+or
+	let Right (t') = t in
+	let Vpair (_, v) = eval s t' in
+	v
+or
+	let Left (t') = t in
+	let Vpair (v, _) = eval s t' in
+	v
+end

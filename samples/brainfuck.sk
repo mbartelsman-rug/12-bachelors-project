@@ -1,0 +1,187 @@
+(* * Runtime types *)
+
+type bit =
+| Zero | One
+
+type ascii =
+| Ascii (bit, bit, bit, bit, bit, bit, bit)
+
+type state =
+| State (vlist<ascii>, ascii, vlist<ascii>)
+
+
+
+(* * State monad: S a = state → (a, state) *)
+
+val ret<a> (x:a) (s:state): (a, state) = (x, s)
+
+val bind<a,b> (a:(state → (a, state))) (f:(a → (state → (b, state))))
+								(s:state): (b, state) =
+			let (a',s') = a s in
+			f a' s'
+
+
+
+(* * Definitions for the AST of a brainfuck program *)
+
+type vlist<a> =
+| Nil
+| Cons (a, vlist<a>)
+
+type op =
+| Minus (* - *)
+| Plus (* + *)
+| Less (* < *)
+| Greater (* > *)
+| Loop vlist<op> (* [ … ] *)
+| In (* , *)
+| Out (* . *)
+
+
+
+(* * Definition of the semantics *)
+
+(* ** Filters for I/O *)
+val output: ascii → ()
+val input: () → ascii
+
+(* ** Base Operations on bit *)
+val addbit (t:(bit, bit)): (bit, bit) =
+	branch
+		let (Zero, _) = t in t
+	or
+		let (One, Zero) = t in (Zero, One)
+	or
+		let (One, One) = t in (One, Zero)
+	end
+
+val subbit (t:(bit, bit)): (bit, bit) =
+	branch
+		let (b, Zero) = t in (Zero, b)
+	or
+		let (One, One) = t in (Zero, Zero)
+	or
+		let (Zero, One) = t in (One, One)
+	end
+
+(* ** Operations on ascii numbers *)
+(* *** zero *)
+val zero: ascii = Ascii(Zero, Zero, Zero, Zero, Zero, Zero, Zero)
+val isZero (a:ascii): () =
+	let Ascii(Zero, Zero, Zero, Zero, Zero, Zero, Zero) = a in ()
+val isNotZero (a:ascii): () =
+	let Ascii (b1, b2, b3, b4, b5, b6, b7) = a in
+		branch
+			let One = b1 in () or
+			let One = b2 in () or
+			let One = b3 in () or
+			let One = b4 in () or
+			let One = b5 in () or
+			let One = b6 in () or
+			let One = b7 in ()
+		end
+
+(* *** incrementation, decrementation *)
+val incr_ascii (a:ascii): ascii =
+	let Ascii (b1, b2, b3, b4, b5, b6, b7) = a in
+	let c = One in
+	let (c, b7) = addbit(c, b7) in
+	let (c, b6) = addbit(c, b6) in
+	let (c, b5) = addbit(c, b5) in
+	let (c, b4) = addbit(c, b4) in
+	let (c, b3) = addbit(c, b3) in
+	let (c, b2) = addbit(c, b2) in
+	let (_, b1) = addbit(c, b1) in
+	Ascii(b1, b2, b3, b4, b5, b6, b7)
+
+val decr_ascii (Ascii (b1, b2, b3, b4, b5, b6, b7):ascii): ascii =
+	let c = One in
+	let (c, b7) = subbit(b7, c) in
+	let (c, b6) = subbit(b6, c) in
+	let (c, b5) = subbit(b5, c) in
+	let (c, b4) = subbit(b4, c) in
+	let (c, b3) = subbit(b3, c) in
+	let (c, b2) = subbit(b2, c) in
+	let (_, b1) = subbit(b1, c) in
+	Ascii(b1, b2, b3, b4, b5, b6, b7)
+
+(* ** Base operations on state *)
+
+val incr (State (l1, b, l2):state): ((), state) =
+	let b' = incr_ascii b in
+	((), State (l1, b', l2))
+
+val decr (State (l1, b, l2):state): ((), state) =
+	let b' = decr_ascii b in
+	((), State (l1, b', l2))
+
+val go_right (State (l1, b, l2):state): ((), state) =
+	let (b', l2') =
+		branch
+			let Nil = l2 in (zero, Nil<ascii>)
+		or
+			let Cons x = l2 in x
+		end
+	in
+	((), State (Cons<ascii> (b, l1), b', l2'))
+
+val go_left (State (l1, b, l2):state): ((), state) =
+	let (b', l1') =
+		branch
+			let Nil = l1 in (zero, Nil<ascii>)
+		or
+			let Cons x = l1 in x
+		end
+	in
+	((), State (l1', b', Cons<ascii> (b, l2)))
+
+val get (State (l1, b, l2):state): (ascii, state) =
+	(b, State (l1, b, l2))
+
+val set (b:ascii) (State (l1, _, l2):state): ((), state) =
+	((), State (l1, b, l2))
+
+(* * Main function: Evaluation a brainfuck code *)
+
+val eval (o:vlist<op>): state → ((), state) =
+	branch
+		let Nil = o in
+		ret<()> ()
+	or
+		let Cons(Minus, l) = o in
+		decr ;%bind
+		eval l
+	or
+		let Cons(Plus, l) = o in
+		incr ;%bind
+		eval l
+	or
+		let Cons(Less, l) = o in
+		go_left ;%bind
+		eval l
+	or
+		let Cons(Greater, l) = o in
+		go_right ;%bind
+		eval l
+	or
+		let Cons(In, l) = o in
+		let v = input () in
+		set v ;%bind
+		eval l
+	or
+		let Cons(Out, l) = o in
+		let v =%bind get in
+		let () = output v in
+		eval l
+	or
+		let Cons(Loop l1, l2) = o in
+		let v =%bind get in
+		branch
+			let () = isZero v in
+			eval l2
+		or
+			let () = isNotZero v in
+			eval l1 ;%bind
+			eval (Cons<op> (Loop l1, l2))
+		end
+end

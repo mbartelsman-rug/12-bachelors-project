@@ -1,0 +1,12 @@
+type name
+type env
+type literal
+type value
+type v_unit
+type v_int
+type v_either
+type v_pair
+type v_fun
+type expr
+
+val add_int : v_int -> v_int -> v_int

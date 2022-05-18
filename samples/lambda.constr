@@ -1,0 +1,37 @@
+type program = lterm
+
+type globalcontext
+type ident
+
+type localcontext = unit
+
+type env1 = (ident, (ident program_point * globalcontext)) map
+type env = env1 set
+type clos = (ident program_point * lterm program_point * env1) set
+
+val envset : env1 * ident * (ident program_point * globalcontext) -> env1
+val framepush : globalcontext * program_point -> globalcontext
+
+var vars : (ident program_point * globalcontext, clos) map
+
+rule in var eval : env
+rule out var eval : clos
+rule in eval(pp, sigmas, env) = [((), env)]
+rule out eval(pp, sigmas, sigma, v) = v
+hook in eval(pp, sigmas, sigma, env, term_) = [(sigmas, env)]
+hook out eval(pp, sigmas, sigma, result) = [(sigma, result)]
+hook in eval^call(pp, sigmas, sigma, env, term_) = [(framepush(sigmas, pp), env)]
+hook out eval^call(pp, sigmas, sigma, result) = [(sigma, result)]
+
+filter mkClos(pp, sigmas, sigma, name, term_, env) =
+  [(sigma, join n in name, join t in term_, join e in env, {(n, t, e)})]
+
+filter getEnv(pp, sigmas, sigma, name, env) =
+  [(sigma, join n in name, join e in env, vars[e[subterm(n)]])]
+
+filter getClos(pp, sigmas, sigma, clos) =
+  join (n, t, e) in clos, [(sigma, {n}, {t}, {e})]
+
+filter extEnv(pp, sigmas, sigma, env, name, clos) =
+  let sigmas1 = framepush(sigmas, pp) in
+  [(sigma, join n in name, (clos <= vars[(n, sigmas1)]) /\ join e in env, {envset(e, subterm(n), (n, sigmas1))})]

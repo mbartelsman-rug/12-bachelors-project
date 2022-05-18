@@ -1,0 +1,89 @@
+type ident
+type bt
+
+type tp =
+| Base bt
+| Arrow (tp, tp)
+| TPVar ident
+| Forall (ident, tp)
+
+type lterm =
+| Lam (ident, tp, lterm)
+| TPLam (ident, lterm)
+| Var ident
+| App (lterm, lterm)
+| TPApp (lterm, tp)
+
+type termtp =
+| Term lterm
+| Type tp
+
+type env
+type value
+
+val getEnv : (ident, env) → (env, termtp)
+val extEnv : (env, ident, termtp, env) → env
+val mkClos : (ident, lterm, env) → value
+val mkTPClos : (ident, lterm, env) → value
+val isClos : value → (ident, lterm, env)
+val isTPClos : value → (ident, lterm, env)
+
+val eval ((s,t):(env, lterm)): value =
+branch
+	let Lam(x, _, t) = t in
+	mkClos (x, t, s)
+or
+	let TPLam(x, t) = t in
+	mkTPClos (x, t, s)
+or
+	let Var x = t in
+	let (s', t) = getEnv(x, s) in
+	let Term t' = t in
+	eval(s', t')
+or
+	let App (t1, t2) = t in
+	let v = eval (s, t1) in
+	let (x, t, s') = isClos (v) in
+	let s'' = extEnv(s', x, (Term t2), s) in
+	eval(s'', t)
+or
+	let TPApp (t1, tp) = t in
+	let v = eval (s, t1) in
+	let (x, t, s') = isTPClos (v) in
+	let s'' = extEnv(s', x, (Type tp), s) in
+	eval(s'', t)
+end
+
+type tpenv
+
+val getTpEnv : (ident, tpenv) → tp
+val extTpEnv : (tpenv, ident, tp) → tpenv
+val eqBase : bt → bt → ()
+
+val eqType (t1:tp) (t2:tp): () =
+	branch
+		let (Arrow (tpa, tpr), Arrow (tpa', tpr')) = (t1, t2) in
+		eqType tpa tpa' ;
+		eqType tpr tpr'
+	or
+		let (Base b, Base b') = (t1, t2) in
+		eqBase b b'
+	end
+
+val checktype (g:tpenv) (t:lterm): tp =
+	branch
+		let Lam (x, tp, t) = t in
+		let g' = extTpEnv(g, x, tp) in
+		let tp' = checktype g' t in
+		Arrow(tp, tp')
+	or
+		let Var x = t in
+		getTpEnv(x, g)
+	or
+		let App (t1, t2) = t in
+		let tpf = checktype g t1 in
+		let tpa = checktype g t2 in
+		let Arrow (tpa', tpres) = tpf in
+		let () = eqType tpa tpa' in
+		tpres
+	end

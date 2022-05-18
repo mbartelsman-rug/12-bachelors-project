@@ -1,0 +1,142 @@
+type ident
+type state
+type value
+
+type vbool =
+| Vtrue
+| Vfalse
+
+type exec =
+| Norm
+| Exc
+
+type lambdaterm =
+| Raise
+| Val value
+| Var ident
+| Plus (lambdaterm, lambdaterm)
+| Div (lambdaterm, lambdaterm)
+| Assign (ident, lambdaterm)
+| Seq (lambdaterm, lambdaterm)
+| Finallybad (lambdaterm, lambdaterm)
+| Finally (lambdaterm, lambdaterm)
+| Try (lambdaterm, lambdaterm)
+
+val add : value → value → value
+val div : value → value → value
+val read : ident → state → (vbool, value)
+val write : ident → state → value → state
+val eqzero : value → vbool
+val skip : value
+
+val eval (e:exec) (s:state) (t:lambdaterm): (exec, state, value) =
+branch
+	let Raise = t in
+	(Exc, s, skip)
+or
+	let Norm = e in
+	branch
+		let Val v = t in
+		(Norm, s, v)
+	or
+		let Var x = t in
+		let (b, v) = read x s in
+		branch
+			let Vtrue = b in
+			(Norm, s, v)
+		or
+			let Vfalse = b in
+			(Exc, s, skip)
+		end
+	or
+		let Plus (t1, t2) = t in
+		let (e', s', v1) = eval Norm s t1 in
+		branch
+			let Exc = e' in
+			(Exc, s', skip)
+		or
+			let Norm = e' in
+			let (e'', s'', v2) = eval Norm s' t2 in
+			branch
+				let Exc = e'' in
+				(Exc, s'', skip)
+			or
+				let Norm = e'' in
+				let v = add v1 v2 in
+				(Norm, s'', v)
+			end
+		end
+	or
+		let Div (t1, t2) = t in
+		let (e', s', v1) = eval Norm s t1 in
+		branch
+			let Exc = e' in
+			(Exc, s', skip)
+		or
+			let Norm = e' in
+			let (e'', s'', v2) = eval Norm s' t2 in
+			branch
+				let Exc = e'' in
+				(Exc, s'', skip)
+			or
+				let Norm = e'' in
+				let b = eqzero v2 in
+				branch
+					let Vtrue = b in
+					(Exc, s'', skip)
+				or
+					let Vfalse = b in
+					let v = div v1 v2 in
+					(Norm, s'', v)
+				end
+			end
+		end
+	or
+		let Assign (x, t') = t in
+		let (e', s', v1) = eval Norm s t' in
+		branch
+			let Exc = e' in
+			(Exc, s', skip)
+		or
+			let Norm = e' in
+			let s'' = write x s' v1 in
+			(Norm, s'', skip)
+		end
+	or
+		let Seq (t1, t2) = t in
+		let (e', s', _) = eval Norm s t1 in
+		branch
+			let Exc = e' in
+			(Exc, s', skip)
+		or
+			let Norm = e' in
+			eval Norm s' t2
+		end
+	or
+		let Finallybad (t1, t2) = t in
+		let (e', s', v1) = eval Norm s t1 in
+		let (Norm, s'', _) = eval Norm s' t2 in
+		(e', s'', v1)
+	or
+		let Finally (t1, t2) = t in
+		let (e', s', v1) = eval Norm s t1 in
+		let (e'', s'', _) = eval Norm s' t2 in
+		branch
+			let Exc = e' in
+			(Exc, s', skip)
+		or
+			let Norm = e' in
+			(e'', s'', v1)
+		end
+	or
+		let Try (t1, t2) = t in
+		let (e', s', v1) = eval Norm s t1 in
+		branch
+			let Exc = e' in
+			eval Norm s' t2
+		or
+			let Norm = e' in
+			(Norm, s', v1)
+		end
+	end
+end

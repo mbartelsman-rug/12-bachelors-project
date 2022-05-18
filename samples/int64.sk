@@ -1,0 +1,180 @@
+type bit =
+| Zero | One
+
+(* big-endian (strong bit first) *)
+type int8 =
+| Int8 (bit, bit, bit, bit, bit, bit, bit, bit)
+type int16 =
+| Int16 (int8, int8)
+type int32 =
+| Int32 (int16, int16)
+type int64 =
+| Int64 (int32, int32)
+
+val notbit (b:bit): bit =
+	branch
+		let Zero = b in One
+	or
+		let One = b in Zero
+	end
+
+val andbit (b:bit): bit → bit =
+	branch
+		let Zero = b in
+		λ _ : bit → Zero
+	or
+		let One = b in
+		λ b : bit → b
+	end
+
+val orbit (b:bit): bit → bit =
+	branch
+		let One = b in
+		λ _ : bit → One
+	or
+		let Zero = b in
+		λ b : bit → b
+	end
+
+val xorbit (b:bit): bit → bit =
+	branch
+		let One = b in
+		notbit
+	or
+		let Zero = b in
+		λ b : bit → b
+	end
+
+val eqbit (b:bit): bit → bit =
+	branch
+		let One = b in
+		λ b : bit → b
+	or
+		let Zero = b in
+		notbit
+	end
+
+val addbit (b:bit) (b1:bit) (b2:bit): (bit, bit) =
+	branch
+		let Zero = b in
+		let carry = andbit b1 b2 in
+		let value = xorbit b1 b2 in
+		(carry, value)
+	or
+		let One = b in
+		let carry = orbit b1 b2 in
+		let value = eqbit b1 b2 in
+		(carry, value)
+	end
+
+
+(* Return carry flag and result *)
+val add8: int8 → int8 → (bit, int8) =
+λ Int8 (b1, b2, b3, b4, b5, b6, b7, b8) : int8 →
+λ Int8 (b1', b2', b3', b4', b5', b6', b7', b8'): int8 →
+	let c = Zero in
+	let (c, x8) = addbit b8 b8' c in
+	let (c, x7) = addbit b7 b7' c in
+	let (c, x6) = addbit b6 b6' c in
+	let (c, x5) = addbit b5 b5' c in
+	let (c, x4) = addbit b4 b4' c in
+	let (c, x3) = addbit b3 b3' c in
+	let (c, x2) = addbit b2 b2' c in
+	let (c, x1) = addbit b1 b1' c in
+	(c, Int8(x1, x2, x3, x4, x5, x6, x7, x8))
+
+val succ8: int8 → (bit, int8) =
+λ Int8 (b1, b2, b3, b4, b5, b6, b7, b8) : int8 →
+	let c = One in
+	let (c, b8) = addbit Zero c b8 in
+	let (c, b7) = addbit Zero c b7 in
+	let (c, b6) = addbit Zero c b6 in
+	let (c, b5) = addbit Zero c b5 in
+	let (c, b4) = addbit Zero c b4 in
+	let (c, b3) = addbit Zero c b3 in
+	let (c, b2) = addbit Zero c b2 in
+	let (c, b1) = addbit Zero c b1 in
+	(c, Int8(b1, b2, b3, b4, b5, b6, b7, b8))
+
+val add16: int16 → int16 → (bit, int16) =
+λ Int16 (h1, l1) : int16 →
+λ Int16 (h2, l2) : int16 →
+	let (ch, h) = add8 h1 h2 in
+	let (cl, l) = add8 l1 l2 in
+	branch
+		let Zero = cl in
+		(ch, Int16(h, l))
+	or
+		let One = cl in
+		let (ch', h) = succ8 h in
+		let carry = orbit ch ch' in
+		(carry, Int16(h, l))
+	end
+
+val succ16: int16 → (bit, int16) =
+λ Int16(high, low) : int16 →
+	let (c, low) = succ8 low in
+	branch
+		let Zero = c in
+		(Zero, Int16(high, low))
+	or
+		let One = c in
+		let (c, high) = succ8 high in
+		(c, Int16(high, low))
+	end
+
+val add32: int32 → int32 → (bit, int32) =
+λ Int32 (h1, l1) : int32 →
+λ Int32 (h2, l2) : int32 →
+	let (ch, h) = add16 h1 h2 in
+	let (cl, l) = add16 l1 l2 in
+	branch
+		let Zero = cl in
+		(ch, Int32(h, l))
+	or
+		let One = cl in
+		let (ch', h) = succ16 h in
+		let carry = orbit ch ch' in
+		(carry, Int32(h, l))
+	end
+
+val succ32: int32 → (bit, int32) =
+λ Int32(high, low) : int32 →
+	let (c, low) = succ16 low in
+	branch
+		let Zero = c in
+		(Zero, Int32 (high, low))
+	or
+		let One = c in
+		let (c, high) = succ16 high in
+		(c, Int32 (high, low))
+	end
+
+val add64: int64 → int64 → (bit, int64) =
+λ Int64 (h1, l1) : int64 →
+λ Int64 (h2, l2) : int64 →
+	let (ch, h) = add32 h1 h2 in
+	let (cl, l) = add32 l1 l2 in
+	branch
+		let Zero = cl in
+		(ch, Int64(h, l))
+	or
+		let One = cl in
+		let (ch', h) = succ32 h in
+		let carry = orbit ch ch' in
+		(carry, Int64(h, l))
+	end
+
+val succ64: int64 → (bit, int64) =
+λ Int64(high, low) : int64 →
+	let (c, low) = succ32 low in
+	branch
+		let Zero = c in
+		(Zero, Int64(high, low))
+	or
+		let One = c in
+		let (c, high) = succ32 high in
+		(c, Int64(high, low))
+	end
+
+

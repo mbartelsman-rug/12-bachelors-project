@@ -1,0 +1,60 @@
+type literal
+
+type value
+type stack
+
+type binop =
+| Add
+| Div
+| Mult
+| Sub
+
+type stmt =
+| Skip
+| Push literal
+| Binop binop
+| Seq (stmt, stmt)
+
+val litToVal : literal → value
+val push : (value, stack) → stack
+val pop : stack → (value, stack)
+
+val add : value → value → value
+val sub : value → value → value
+val mult : value → value → value
+val div : value → value → value
+
+val apply (o:binop): value → value → value =
+	branch
+		let Add = o in
+		add
+	or
+		let Div = o in
+		div
+	or
+		let Mult = o in
+		mult
+	or
+		let Sub = o in
+		sub
+	end
+
+val eval ((s,t):(stack, stmt)): stack =
+branch
+	let Skip = t in
+	s
+or
+	let Push i = t in
+	let f = litToVal (i) in
+	push (f, s)
+or
+	let Binop op = t in
+	let (f1, s1) = pop s in
+	let (f2, s2) = pop s1 in
+	let f3 = apply op f2 f1 in
+	push (f3, s2)
+or
+	let Seq (t1, t2) = t in
+	let s' = eval (s, t1) in
+	eval (s', t2)
+end

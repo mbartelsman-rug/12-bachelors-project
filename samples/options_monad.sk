@@ -1,0 +1,129 @@
+
+type state
+type value
+type vint
+type vbool
+type voption<a> =
+| None
+| Some a
+
+type ident
+type lit
+
+type expr =
+| Const lit
+| Var ident
+| Plus (expr, expr)
+| Equal (expr, expr)
+| Not expr
+type stmt =
+| Seq (stmt, stmt)
+| Skip
+| Assign (ident, expr)
+| If (expr, stmt, stmt)
+| While (expr, stmt)
+| Try (stmt, stmt)
+
+(* Option monad *)
+val opt<a, b> (o:voption<a>) (f:(a → voption<b>)): voption<b> =
+	branch
+		let None = o in None<b>
+	or
+		let Some a = o in f a
+	end
+
+val litToVal: lit → value
+val read: (ident, state) → voption<value>
+val write: (ident, state, value) → state
+val isInt: value → voption<vint>
+val isBool: value → voption<vbool>
+val add: (vint, vint) → value
+val isTrue: vbool → ()
+val isFalse: vbool → ()
+val eq: (vint, vint) → value
+val neg: vbool → value
+
+val failed<a> (None:voption<a>): () = ()
+val succeeded<a> (Some _:voption<a>): () = ()
+
+val eval_expr ((s,e):(state, expr)): voption<value> =
+branch
+	let Const i = e in
+	let v = litToVal (i) in
+	Some<value> v
+or
+	let Var x = e in
+	read (x, s)
+or
+	let Plus (t1, t2) = e in
+	let f1 =%opt eval_expr (s, t1) in
+	let f2 =%opt eval_expr (s, t2) in
+	let v1 =%opt isInt (f1) in
+	let v2 =%opt isInt (f2) in
+	let v = add (v1, v2) in
+	Some<value> v
+or
+	let Equal (t1, t2) = e in
+	let f1 =%opt eval_expr (s, t1) in
+	let f2 =%opt eval_expr (s, t2) in
+	let v1 =%opt isInt (f1) in
+	let v2 =%opt isInt (f2) in
+	let v = eq (v1, v2) in
+	Some<value> v
+or
+	let Not e = e in
+	let f =%opt eval_expr (s, e) in
+	let v =%opt isBool f in
+	let v' = neg v in
+	Some<value> v'
+end
+
+val eval_stmt ((s,t):(state, stmt)): voption<state> =
+branch
+	let Skip = t in
+	Some<state> s
+or
+	let Seq (s1, s2) = t in
+	let f1 =%opt eval_stmt (s, s1) in
+	eval_stmt(f1, s2)
+or
+	let Assign (t1, t2) = t in
+	let f2 =%opt eval_expr (s, t2) in
+	let t' = write(t1, s, f2) in
+	Some<state> (t')
+or
+	let If (t1, t2, t3) = t in
+	let f1  =%opt eval_expr (s,t1) in
+	let f1' =%opt isBool(f1) in
+	branch
+		let () = isTrue(f1') in
+		eval_stmt (s, t2)
+	or
+		let () = isFalse(f1') in
+		eval_stmt (s, t3)
+	end
+or
+	let While (t1, t2) = t in
+	let f1 =%opt eval_expr (s, t1) in
+	let b  =%opt isBool(f1) in
+	branch
+		let () = isTrue (b) in
+		let s' =%opt eval_stmt (s, t2) in
+		eval_stmt(s', While (t1, t2))
+	or
+		let () = isFalse (b) in
+		Some<state> s
+	end
+or
+	let Try (t1, t2) = t in
+	let s' = eval_stmt (s, t1) in
+	branch
+		let () = succeeded<state> s' in
+		s'
+	or
+		let () = failed<state> s' in
+		eval_stmt(s, t2)
+	end
+end
+
+

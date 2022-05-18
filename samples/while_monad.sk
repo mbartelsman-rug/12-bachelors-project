@@ -1,0 +1,122 @@
+(* State monad *)
+type st<a> := state → (a, state)
+
+val bind<a, b> (a:st<a>) (f:a → st<b>): st<b> =
+	λ s : state →
+	let (a, s) = a s in
+	f a s
+val ret<a> (a:a): st<a> =
+	λ s : state → (a, s)
+
+type ident
+type lit
+
+type state
+type vint
+
+type boolean =
+| True
+| False
+
+type value =
+| Int vint
+| Bool boolean
+
+type expr =
+| Const lit
+| Var ident
+| Plus (expr, expr)
+| Equal (expr, expr)
+| Not expr
+
+type stmt =
+| Skip
+| Assign (ident, expr)
+| Seq (stmt, stmt)
+| If (expr, stmt, stmt)
+| While (expr, stmt)
+
+val litToVal : lit → value
+val read : ident → st<value>
+val write : (ident, value) → st<()>
+val add : (vint, vint) → vint
+val eq : (vint, vint) → boolean
+
+val neg (b:boolean): boolean =
+	branch
+		let True = b in False
+	or
+		let False = b in True
+	end
+
+val eval_expr (e:expr): st<value> =
+branch
+	let Const i = e in
+	let v = litToVal i in
+	ret<value> v
+or
+	let Var x = e in
+	read x
+or
+	let Plus (t1, t2) = e in
+	let f1 =%bind eval_expr t1 in
+	let Int f1' = f1 in
+	let f2 =%bind eval_expr t2 in
+	let Int f2' = f2 in
+	let v = add (f1', f2') in
+	let r = Int v in
+	ret<value> r
+or
+	let Equal (t1, t2) = e in
+	let f1 =%bind eval_expr t1 in
+	let Int f1' = f1 in
+	let f2 =%bind eval_expr t2 in
+	let Int f2' = f2 in
+	let v = eq (f1', f2') in
+	let r = Bool v in
+	ret<value> r
+or
+	let Not t = e in
+	let f1 =%bind eval_expr t in
+	let Bool f1' = f1 in
+	let v = neg (f1') in
+	let r = Bool v in
+	ret<value> r
+end
+
+val eval_stmt (t:stmt): st<()> =
+branch
+	let Skip = t in
+	ret<()> ()
+or
+	let Assign (t1, t2) = t in
+	let f2 =%bind eval_expr t2 in
+	write (t1, f2)
+or
+	let Seq (t1, t2) = t in
+	eval_stmt t1 ;%bind
+	eval_stmt t2
+or
+	let If (t1, t2, t3) = t in
+	let f1 =%bind eval_expr t1 in
+	let Bool f1' = f1 in
+	branch
+		let True = f1' in
+		eval_stmt t2
+	or
+		let False = f1' in
+		eval_stmt t3
+	end
+or
+	let While (t1, t2) = t in
+	let f1 =%bind eval_expr t1 in
+	let Bool f1' = f1 in
+	branch
+		let True = f1' in
+		eval_stmt t2 ;%bind
+		eval_stmt (While (t1, t2))
+	or
+		let False = f1' in
+		ret<()> ()
+	end
+end
