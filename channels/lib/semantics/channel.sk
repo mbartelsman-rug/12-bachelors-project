@@ -1,0 +1,19 @@
+
+(*============================================*
+ * CHANNELS                                   *
+ *--------------------------------------------*
+ * Definitions and operations on channels     *
+ *============================================*)
+
+type chan_id_t := id_t
+type chan_buff_t := queue_t<value_t>
+
+val chan_new (): (chan_name_t, chan_buff_t) =
+  let id = id_new () in
+  let buff = queue_new () in
+  (id, buff)
+
+val chan_send ((chan, value): (chan_id_t, value_t)): () =
+
+val chan_receive (chan: chan_id_t): (value_t) = 
+

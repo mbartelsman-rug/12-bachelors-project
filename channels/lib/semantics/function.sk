@@ -1,0 +1,9 @@
+
+(*============================================*
+ * FUNCTIONS                                  *
+ *--------------------------------------------*
+ * Contains the definitions and filters for   *
+ * operation on function closures             *
+ *============================================*)
+
+type func_t = (name_t, expr_t, env_t)

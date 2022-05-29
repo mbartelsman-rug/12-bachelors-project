@@ -1,0 +1,10 @@
+
+(*============================================*
+ * PAIR                                       *
+ *--------------------------------------------*
+ * Contains the definitions and filters for   *
+ * tuples of two elements.                    *
+ *============================================*)
+
+type pair_t = (value_t, value_t)
+ 

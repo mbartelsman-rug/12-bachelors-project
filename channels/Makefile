@@ -9,9 +9,19 @@ ocaml_target := $(lib_folder)$(ocaml_target_name)
 
 .DELETE_ON_ERROR:
 
-semantics: $(sem_target)
+all: semantics dune_proj
 
+semantics: build_semantics clean_semantics
+
+build_semantics: collect_semantics
+	necroml $(sem_target) -o $(ocaml_target)
+
+collect_semantics: $(sem_target)
 $(sem_target):
 	cat     $(sem_files) > $(sem_target)
-	necroml $(sem_target) -o $(ocaml_target)
+
+clean_semantics:
 	rm      $(sem_target)
+
+dune_proj:
+	dune build

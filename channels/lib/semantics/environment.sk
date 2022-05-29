@@ -1,0 +1,27 @@
+
+(*============================================*
+ * ENVIRONMENT                                *
+ *--------------------------------------------*
+ * Contains the definitions and filters for   *
+ * the execution environemnt of the program   *
+ *============================================*)
+
+type env_t = (threads_t, channels_t)
+
+type threads_t := queue<expr>
+type channels_t := dict<chan_id_t,chan_buff_t>
+
+val env_read_chan_buff ((env, id): (env_t, chan_id_t)): (chan_buff_t) =
+  let (tpool, chans) = env in
+  let buff = dict_read (chans, id) in
+  buff
+
+val env_write_chan_buff ((env, id, buff): (env_t, chan_id_t, chan_buff_t)): (env_t) =
+  let (tpool, chans) = env in
+  let chans' = dict_write (chans, id, buff) in
+  (tpool, chans')
+
+val env_fork ((env, expr): (env_t, expr_t)): () =
+  let (tpool, chans) = env in
+  let tpool' = queue_enqueue (tpool, expr) in
+  (tpool', chans)
