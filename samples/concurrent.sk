@@ -118,6 +118,11 @@ val flatten (s:stmt): vlist<stmt> =
 	branch
 		let Skip = s in VNil<stmt>
 	or
+		let Seq (s1, s2) = s in
+		let l1 = flatten s1 in
+		let l2 = flatten s2 in
+		append<stmt> l1 l2
+	or
 		branch
 			let Assign _ = s in ()
 		or
@@ -128,11 +133,6 @@ val flatten (s:stmt): vlist<stmt> =
 			let If _ = s in ()
 		end ;
 		VCons<stmt> (s, VNil<stmt>)
-	or
-		let Seq (s1, s2) = s in
-		let l1 = flatten s1 in
-		let l2 = flatten s2 in
-		append<stmt> l1 l2
 	end
 
 val unflatten (x:vlist<stmt>): stmt =
