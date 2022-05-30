@@ -13,6 +13,7 @@ type expr_t =
 
 (* Function operations *)
 | Func (name_t, expr_t)
+| RecFun (name_t, name_t, expr_t)
 | Call (expr_t, expr_t)
 | Let (name_t, expr_t, expr_t)
 
@@ -64,12 +65,25 @@ val expr_reduce_func ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   let func = FuncVal (name, expr, env) in
   (env, Ret func)
 
+  
+val expr_reduce_rec_func ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  let RecFunc (func_name, arg_name, expr) = expr in
+  let func = RecFuncVal (func_name, arg_name, env) in
+  (env, Ret func)
+
 val expr_reduce_call ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   branch
-    let Call (Ret func, Ret arg) = expr in
-    let (name, body, env') = value_as_func (func) in
-    let res = apply_in (name, arg, body) in
-    (env, res)
+    let Call (Ret func, Ret arg_val) = expr in
+    branch
+      let (arg_name, body, env') = value_as_func (func) in
+      let res = func_subst_in (arg_name, arg_val, body) in
+      (env, res)
+    or
+      let (func_name, arg_name, body, env') = value_as_rec_func (func) in
+      let res = func_subst_in (func_name, func, body) in
+      let res' = func_subst_in (arg_name, arg_val, body) in
+      (env, res')
+    end
   or
     let Call (Ret func, arg) = expr in
     let arg' = expr_reduce (env, arg) in
@@ -83,7 +97,7 @@ val expr_reduce_call ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
 val expr_reduce_let ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   branch
     let Let (name, Ret value, body) = expr in
-    let res = apply_in (name, value, body) in
+    let res = func_subst_in (name, value, body) in
     (env, res)
   or
     let Let (name, value, body) = expr in
