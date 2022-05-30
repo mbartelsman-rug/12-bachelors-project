@@ -6,5 +6,5 @@
  * tuples of two elements.                    *
  *============================================*)
 
-type pair_t = (value_t, value_t)
+type pair_t := (value_t, value_t)
  

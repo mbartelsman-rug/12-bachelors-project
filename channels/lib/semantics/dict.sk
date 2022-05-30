@@ -9,11 +9,11 @@
 
 type dict_t<_,_>
 
-val dict_new<k,v> :        ()                  -> (dict_t<k,v>)
-val dict_is_empty<v> :     (dict_t<k,v>)       -> (dict_t<k,v>)
-val dict_is_empty_not<v> : (dict_t<k,v>)       -> (dict_t<k,v>)
-val dict_has_some<k,v> :   (dict_t<k,v>, k)    -> (dict_t<k,v>)
-val dict_has_no<k,v> :     (dict_t<k,v>, k)    -> (dict_t<k,v>)
-val dict_write<k,v> :      (dict_t<k,v>, k, v) -> (dict_t<k,v>)
-val dict_read<k,v> :       (dict_t<k,v>, k)    -> (v)
-val dict_drop<k,v> :       (dict_t<k,v>, k)    -> (dict_t<k,v>)
+val dict_new<k,v> :          ()                  -> (dict_t<k,v>)
+val dict_is_empty<k,v> :     (dict_t<k,v>)       -> (dict_t<k,v>)
+val dict_is_empty_not<k,v> : (dict_t<k,v>)       -> (dict_t<k,v>)
+val dict_has_some<k,v> :     (dict_t<k,v>, k)    -> (dict_t<k,v>)
+val dict_has_no<k,v> :       (dict_t<k,v>, k)    -> (dict_t<k,v>)
+val dict_write<k,v> :        (dict_t<k,v>, k, v) -> (dict_t<k,v>)
+val dict_read<k,v> :         (dict_t<k,v>, k)    -> (v)
+val dict_drop<k,v> :         (dict_t<k,v>, k)    -> (dict_t<k,v>)

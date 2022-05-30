@@ -1,0 +1,665 @@
+
+(*============================================*
+ * CHANNELS                                   *
+ *--------------------------------------------*
+ * Definitions and operations on channels     *
+ *============================================*)
+
+type chan_id_t := id_t
+type chan_buff_t := queue_t<value_t>
+
+val chan_new (_:()): (chan_id_t, chan_buff_t) =
+  let id = id_new () in
+  let buff = queue_new<value_t> () in
+  (id, buff)
+
+(*============================================*
+ * DICTIONARY                                 *
+ *--------------------------------------------*
+ * Definition and filter hooks for a key-     *
+ * value store, for things such as variable   *
+ * environments or thread pools               *
+ *============================================*)
+
+type dict_t<_,_>
+
+val dict_new<k,v> :          ()                  -> (dict_t<k,v>)
+val dict_is_empty<k,v> :     (dict_t<k,v>)       -> (dict_t<k,v>)
+val dict_is_empty_not<k,v> : (dict_t<k,v>)       -> (dict_t<k,v>)
+val dict_has_some<k,v> :     (dict_t<k,v>, k)    -> (dict_t<k,v>)
+val dict_has_no<k,v> :       (dict_t<k,v>, k)    -> (dict_t<k,v>)
+val dict_write<k,v> :        (dict_t<k,v>, k, v) -> (dict_t<k,v>)
+val dict_read<k,v> :         (dict_t<k,v>, k)    -> (v)
+val dict_drop<k,v> :         (dict_t<k,v>, k)    -> (dict_t<k,v>)
+
+(*============================================*
+ * EITHER                                     *
+ *--------------------------------------------*
+ * Contains the definitions and filters for   *
+ * unions of two possible variants.           *
+ *============================================*)
+
+type either_t =
+| LeftVal  (value_t)
+| RightVal (value_t)
+
+(* Asserts that the value is the left variant and returns it *)
+val either_as_left (e: either_t): (value_t) =
+  let LeftVal v = e in v
+
+(* Asserts that the value is the right variant and returns it *)
+val either_as_right (e: either_t): (value_t) =
+  let RightVal v = e in v
+
+(*============================================*
+ * ENVIRONMENT                                *
+ *--------------------------------------------*
+ * Contains the definitions and filters for   *
+ * the execution environemnt of the program   *
+ *============================================*)
+
+(* TODO: Maybe remove func_env *)
+
+type env_t := (thread_pool_t, chan_env_t, func_env_t)
+
+type thread_pool_t := queue_t<expr_t>
+type chan_env_t := dict_t<chan_id_t,chan_buff_t>
+type func_env_t := dict_t<name_t,value_t>
+
+val env_get_threads (env: env_t): (thread_pool_t) =
+  let (th, _, _) = env in th
+
+val env_set_threads ((env, th'): (env_t, thread_pool_t)): (env_t) =
+  let (_, ch, fn) = env in
+  (th', ch, fn)
+
+val env_get_channels (env: env_t): (chan_env_t) =
+  let (_, ch, _) = env in ch
+
+val env_set_channels ((env, ch'): (env_t, chan_env_t)): (env_t) =
+  let (th, _, fn) = env in
+  (th, ch', fn)
+
+val env_get_functions (env: env_t): (func_env_t) =
+  let (_, _, fn) = env in fn
+
+val env_set_functions ((env, fn'): (env_t, func_env_t)): (env_t) =
+  let (th, ch, _) = env in
+  (th, ch, fn')
+
+val env_read_chan_buff ((env, id): (env_t, chan_id_t)): (chan_buff_t) =
+  let chans = env_get_channels (env) in
+  let buff = dict_read<chan_id_t,chan_buff_t> (chans, id) in
+  buff
+
+val env_write_chan_buff ((env, id, buff): (env_t, chan_id_t, chan_buff_t)): (env_t) =
+  let chans = env_get_channels (env) in
+  let chans' = dict_write<chan_id_t,chan_buff_t> (chans, id, buff) in
+  let env' = env_set_channels (env, chans') in
+  env'
+
+val env_fork ((env, expr): (env_t, expr_t)): (env_t) =
+  let tpool = env_get_threads (env) in
+  let tpool' = queue_enqueue<expr_t> (tpool, expr) in
+  let env' = env_set_threads (env, tpool') in
+  env'
+
+val env_read_func ((env, name): (env_t, name_t)): (value_t) =
+  let funs = env_get_functions (env) in
+  let f = dict_read<name_t,value_t> (funs, name) in
+  f
+
+val env_write_func ((env, name, func): (env_t, name_t, value_t)): (env_t) =
+  let funcs = env_get_functions (env) in
+  let funcs' = dict_write<name_t,value_t> (funcs, name, func) in
+  let env' = env_set_functions (env, funcs') in
+  env'
+
+(*============================================*
+ * EXPRESSIONS                                *
+ *--------------------------------------------*
+ * Module containing expression definitions,  *
+ * filters, and reduction skeletons           *
+ *============================================*)
+
+type expr_t =
+| Ret (value_t)
+| Var (name_t)
+| Seq (expr_t, expr_t)
+
+(* Function operations *)
+| Func (name_t, expr_t)
+| RecFunc (name_t, name_t, expr_t)
+| Call (expr_t, expr_t)
+| Let (name_t, expr_t, expr_t)
+
+(* Integer operations *)
+| Neg (expr_t)
+| Add (expr_t, expr_t)
+| Sub (expr_t, expr_t)
+| Mul (expr_t, expr_t)
+| Div (expr_t, expr_t)
+
+(* Pair operations *)
+| Pair (expr_t, expr_t)
+| Fst  (expr_t)
+| Snd  (expr_t)
+
+(* Either operations *)
+| Left  (expr_t)
+| Right (expr_t)
+| Match (expr_t, expr_t, expr_t)
+
+(* Concurrency operations *)
+| NewCh
+| Give (chan_id_t, expr_t)
+| Take (chan_id_t)
+| Fork (expr_t)
+
+val expr_reduce ((env, expr): (env_t, expr_t)): (env_t, expr_t) = 
+  branch
+    expr_reduce_ret (env, expr)
+  (* or
+    expr_reduce_var (env, expr) *)
+  or
+    expr_reduce_func (env, expr)
+  or
+    expr_reduce_call (env, expr)
+  or
+    expr_reduce_let (env, expr)
+  or
+    expr_reduce_neg (env, expr)
+  or
+    expr_reduce_add (env, expr)
+  or
+    expr_reduce_sub (env, expr)
+  or
+    expr_reduce_mul (env, expr)
+  or
+    expr_reduce_div (env, expr)
+  or
+    expr_reduce_pair (env, expr)
+  or
+    expr_reduce_fst (env, expr)
+  or
+    expr_reduce_snd (env, expr)
+  or
+    expr_reduce_left (env, expr)
+  or
+    expr_reduce_right (env, expr)
+  or
+    expr_reduce_match (env, expr)
+  or
+    expr_reduce_new_ch (env, expr)
+  or
+    expr_reduce_give (env, expr)
+  or
+    expr_reduce_take (env, expr)
+  or
+    expr_reduce_fork (env, expr)
+  end
+
+val expr_reduce_ret ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  (* Do nothing, this is irreducible *)
+  let Ret value = expr in
+  (env, Ret value)
+
+(* TODO: Decide on substitution vs. variable environment *)
+(* val expr_reduce_var ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  let Var name = expr in
+  let value = dict_read<> (env, name) in
+  (env, Ret value) *)
+
+val expr_reduce_seq ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Seq (Ret UnitVal, rest) = expr in
+    (env, rest)
+  or
+    let Seq (this, rest) = expr in
+    let (env', this') = expr_reduce (env, this) in
+    (env', Seq (this', rest))
+  end
+
+val expr_reduce_func ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  let Func (name, expr) = expr in
+  let func = FuncVal (name, expr, env) in
+  (env, Ret func)
+
+  
+val expr_reduce_rec_func ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  let RecFunc (func_name, arg_name, expr) = expr in
+  let func = RecFuncVal (func_name, arg_name, expr, env) in
+  (env, Ret func)
+
+val expr_reduce_call ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Call (Ret func, Ret arg_val) = expr in
+    branch
+      let (arg_name, body, _) = value_as_func (func) in
+      let body' = func_subst_in (arg_name, arg_val, body) in
+      (env, body')
+    or
+      let (func_name, arg_name, body, _) = value_as_rec_func (func) in
+      let body' = func_subst_in (func_name, func, body) in
+      let body'' = func_subst_in (arg_name, arg_val, body') in
+      (env, body'')
+    end
+  or
+    let Call (Ret func, arg) = expr in
+    let (env', arg') = expr_reduce (env, arg) in
+    (env', Call (Ret func, arg'))
+  or
+    let Call (func, arg) = expr in
+    let (env', func') = expr_reduce (env, func) in
+    (env', Call (func', arg))
+  end
+
+val expr_reduce_let ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Let (name, Ret value, body) = expr in
+    let res = func_subst_in (name, value, body) in
+    (env, res)
+  or
+    let Let (name, value, body) = expr in
+    let (env', value') = expr_reduce (env, value) in
+    (env', Let (name, value', body))
+  end
+
+val expr_reduce_neg ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Neg (Ret value) = expr in
+    let int = value_as_int (value) in
+    let int' = int_neg (int) in
+    (env, Ret int')
+  or
+    let Neg expr = expr in
+    let (env', expr') = expr_reduce (env, expr) in
+    (env', Neg expr')
+  end
+
+val expr_reduce_add ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Add (Ret lhs, Ret rhs) = expr in
+    let i = value_as_int (lhs) in
+    let j = value_as_int (rhs) in
+    let res = int_add (i, j) in
+    (env, Ret res)
+  or
+    let Add (Ret lhs, rhs) = expr in
+    let (env', rhs') = expr_reduce (env, rhs) in
+    (env', Add (Ret lhs, rhs'))
+  or
+    let Add (lhs, rhs) = expr in
+    let (env', lhs') = expr_reduce (env, lhs) in
+    (env', Add (lhs', rhs))
+  end
+
+val expr_reduce_sub ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Sub (Ret lhs, Ret rhs) = expr in
+    let i = value_as_int (lhs) in
+    let j = value_as_int (rhs) in
+    let res = int_sub (i, j) in
+    (env, Ret res)
+  or
+    let Sub (Ret lhs, rhs) = expr in
+    let (env', rhs') = expr_reduce (env, rhs) in
+    (env', Sub (Ret lhs, rhs'))
+  or
+    let Sub (lhs, rhs) = expr in
+    let (env', lhs') = expr_reduce (env, lhs) in
+    (env', Sub (lhs', rhs))
+  end
+
+val expr_reduce_mul ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Mul (Ret lhs, Ret rhs) = expr in
+    let i = value_as_int (lhs) in
+    let j = value_as_int (rhs) in
+    let res = int_mul (i, j) in
+    (env, Ret res)
+  or
+    let Mul (Ret lhs, rhs) = expr in
+    let (env', rhs') = expr_reduce (env, rhs) in
+    (env', Mul (Ret lhs, rhs'))
+  or
+    let Mul (lhs, rhs) = expr in
+    let (env', lhs') = expr_reduce (env, lhs) in
+    (env', Mul (lhs', rhs))
+  end
+
+val expr_reduce_div ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Div (Ret lhs, Ret rhs) = expr in
+    let i = value_as_int (lhs) in
+    let j = value_as_int (rhs) in
+    let res = int_div (i, j) in
+    (env, Ret res)
+  or
+    let Div (Ret lhs, rhs) = expr in
+    let (env', rhs') = expr_reduce (env, rhs) in
+    (env', Div (Ret lhs, rhs'))
+  or
+    let Div (lhs, rhs) = expr in
+    let (env', lhs') = expr_reduce (env, lhs) in
+    (env', Div (lhs', rhs))
+  end
+
+val expr_reduce_pair ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Pair (Ret fst, Ret snd) = expr in
+    let pair = PairVal (fst, snd) in
+    (env, Ret pair)
+  or
+    let Pair (Ret fst, snd) = expr in
+    let (env', snd') = expr_reduce (env, snd) in
+    (env', Pair (Ret fst, snd'))
+  or
+    let Pair (fst, snd) = expr in
+    let (env', fst') = expr_reduce (env, fst) in
+    (env', Pair (fst', snd))
+  end
+
+val expr_reduce_fst ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Fst (Ret pair) = expr in
+    let (fst, _) = value_as_pair (pair) in
+    (env, Ret fst)
+  or
+    let Fst pair = expr in
+    let (env', pair' )= expr_reduce (env, pair) in
+    (env', Fst pair')
+  end
+
+val expr_reduce_snd ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Snd (Ret pair) = expr in
+    let (_, snd) = value_as_pair (pair) in
+    (env, Ret snd)
+  or
+    let Snd pair = expr in
+    let (env', pair') = expr_reduce (env, pair) in
+    (env', Snd pair')
+  end
+
+val expr_reduce_left ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Left load = expr in
+    let (env', load') = expr_reduce (env, load) in
+    (env', Left load')
+  or
+    let Left (Ret load) = expr in
+    let either = EitherVal (LeftVal load) in
+    (env, Ret either)
+  end
+
+val expr_reduce_right ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Right load = expr in
+    let (env', load') = expr_reduce (env, load) in
+    (env', Right load')
+  or
+    let Right (Ret load) = expr in
+    let either = EitherVal (RightVal load) in
+    (env, Ret either)
+  end
+
+val expr_reduce_match ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Match (Ret either, on_left, on_right) = expr in
+    let either = value_as_either (either) in
+    branch
+      let value = either_as_left (either) in
+      (env, Call (on_left, Ret value))
+    or
+      let value = either_as_right (either) in
+      (env, Call (on_right, Ret value))
+    end
+  or
+    let Match (either, on_left, on_right) = expr in
+    let (env', either') = expr_reduce (env, either) in
+    (env', Match (either', on_left, on_right))
+  end
+
+val expr_reduce_new_ch ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  let NewCh = expr in
+  let (id, buff) = chan_new () in
+  let env' = env_write_chan_buff (env, id, buff) in
+  let value = ChanIdVal id in
+  (env', Ret value)
+
+val expr_reduce_give ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Give (id, Ret value) = expr in
+    let buff = env_read_chan_buff (env, id) in
+    let buff' = queue_enqueue<value_t> (buff, value) in
+    let env' = env_write_chan_buff (env, id, buff') in
+    (env', Ret UnitVal)
+  or
+    let Give (id, expr) = expr in
+    let (env', expr') = expr_reduce (env, expr) in
+    (env', Give (id, expr'))
+  end
+
+val expr_reduce_take ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  let Take id = expr in
+  let buff = env_read_chan_buff (env, id) in
+  let (buff', value) = queue_dequeue<value_t> (buff) in
+  let env' = env_write_chan_buff (env, id, buff') in
+  (env', Ret value)
+
+val expr_reduce_fork ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  let Fork expr = expr in
+  let env' = env_fork (env, expr) in
+  (env', Ret UnitVal)
+
+(*============================================*
+ * FUNCTIONS                                  *
+ *--------------------------------------------*
+ * Contains the definitions and filters for   *
+ * operation on function closures and         *
+ * recursive functions.                       *
+ *============================================*)
+
+type func_t := (name_t, expr_t, env_t)
+type rec_func_t := (name_t, name_t, expr_t, env_t)
+
+(* Substitutes the given parameter name by the passed argument value in the
+   expression. Will do so recursively until the entire expression tree has had
+   the substitution applied. Does not operate on values. *)
+val func_subst_in ((par, arg, expr): (name_t, value_t, expr_t)): (expr_t) =
+  branch
+    let Var (name) = expr in
+    let () = name_eq (name, par) in
+    Ret arg
+  or
+    let Seq (expr1, expr2) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    let expr2' = func_subst_in (par, arg, expr2) in
+    Seq (expr1', expr2')
+  or
+    let Func (other1, expr1) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    Func (other1, expr1')
+  or
+    let RecFunc (other1, other2, expr1) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    RecFunc (other1, other2, expr1')
+  or
+    let Call (expr1, expr2) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    let expr2' = func_subst_in (par, arg, expr2) in
+    Call (expr1', expr2')
+  or
+    let Let (other1, expr1, expr2) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    let expr2' = func_subst_in (par, arg, expr2) in
+    Let (other1, expr1', expr2')
+  or
+    let Neg (expr1) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    Neg (expr1')
+  or
+    let Add (expr1, expr2) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    let expr2' = func_subst_in (par, arg, expr2) in
+    Add (expr1', expr2')
+  or
+    let Sub (expr1, expr2) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    let expr2' = func_subst_in (par, arg, expr2) in
+    Sub (expr1', expr2')
+  or
+    let Mul (expr1, expr2) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    let expr2' = func_subst_in (par, arg, expr2) in
+    Mul (expr1', expr2')
+  or
+    let Div (expr1, expr2) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    let expr2' = func_subst_in (par, arg, expr2) in
+    Div (expr1', expr2')
+  or
+    let Pair (expr1, expr2) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    let expr2' = func_subst_in (par, arg, expr2) in
+    Pair (expr1', expr2')
+  or
+    let Fst  (expr1) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    Fst (expr1')
+  or
+    let Snd  (expr1) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    Snd (expr1')
+  or
+    let Left  (expr1) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    Left  (expr1')
+  or
+    let Right (expr1) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    Right (expr1')
+  or
+    let Match (expr1, expr2, expr3) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    let expr2' = func_subst_in (par, arg, expr2) in
+    let expr3' = func_subst_in (par, arg, expr3) in
+    Match (expr1', expr2', expr3')
+  or
+    let Give (other1, expr1) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    Give (other1, expr1')
+  or
+    let Fork (expr1) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    Fork (expr1')
+  end
+
+(*============================================*
+ * IDs                                        *
+ *--------------------------------------------*
+ * Definitions and operations on id types     *
+ *============================================*)
+
+type id_t
+
+val id_new : () -> (id_t)
+
+(*============================================*
+ * INTEGER                                    *
+ *--------------------------------------------*
+ * Definition and filter hooks for integer    *
+ * operations and arithmetic semantics        *
+ *============================================*)
+
+type int_t
+
+val int_new : ()             -> (value_t)
+val int_neg : (int_t)        -> (value_t)
+val int_add : (int_t, int_t) -> (value_t)
+val int_sub : (int_t, int_t) -> (value_t)
+val int_mul : (int_t, int_t) -> (value_t)
+val int_div : (int_t, int_t) -> (value_t)
+
+(*============================================*
+ * NAMES                                      *
+ *--------------------------------------------*
+ * Definitions and operations on name types   *
+ *============================================*)
+
+type name_t
+
+(* Fails if the names are different *)
+val name_eq : (name_t, name_t) -> ()
+ 
+(*============================================*
+ * PAIR                                       *
+ *--------------------------------------------*
+ * Contains the definitions and filters for   *
+ * tuples of two elements.                    *
+ *============================================*)
+
+type pair_t := (value_t, value_t)
+ 
+(*============================================*
+ * QUEUE                                      *
+ *--------------------------------------------*
+ * Definition and filter hooks for a          *
+ * polymorphic queue implementation to be     *
+ * used in the semantics of a language.       *
+ *============================================*)
+
+ type queue_t<_>
+
+ val queue_new<v> :          ()              -> (queue_t<v>)
+ val queue_is_empty<v> :     (queue_t<v>)    -> (queue_t<v>)
+ val queue_is_not_empty<v> : (queue_t<v>)    -> (queue_t<v>)
+ val queue_enqueue<v> :      (queue_t<v>, v) -> (queue_t<v>)
+ val queue_dequeue<v> :      (queue_t<v>)    -> (queue_t<v>, v)
+ 
+(*============================================*
+ * VALUES                                     *
+ *--------------------------------------------*
+ * Contains the definitions and filters for   *
+ * operation on runtime values and their      *
+ * possible types                             *
+ *============================================*)
+
+type value_t =
+| UnitVal
+| IntVal     (int_t)
+| EitherVal  (either_t)
+| PairVal    (pair_t)
+| FuncVal    (func_t)
+| RecFuncVal (rec_func_t)
+| ChanIdVal  (chan_id_t)
+
+(* Asserts that the value is a unit value and return it *)
+val value_as_unit (v: value_t): (value_t) =
+  let UnitVal = v in UnitVal
+
+  (* Asserts that the value is an Integer and returns the integer *)
+  val value_as_int (v: value_t): (int_t) =
+    let IntVal i = v in i
+  
+(* Asserts that the value is an Either and returns the union *)
+val value_as_either (v: value_t): (either_t) =
+  let EitherVal e = v in e
+
+(* Asserts that the value is a Pair and returns the union *)
+val value_as_pair (v: value_t): (pair_t) =
+  let PairVal p = v in p
+
+(* Asserts that the value is a function closure and returns the closure *)
+val value_as_func (v: value_t): (func_t) =
+  let FuncVal f = v in f
+
+(* Asserts that the value is a function closure and returns the closure *)
+val value_as_rec_func (v: value_t): (rec_func_t) =
+  let RecFuncVal rf = v in rf
+  
+(* Asserts that the value is a channel and returns the it *)
+val value_as_chan (v: value_t): (chan_id_t) =
+  let ChanIdVal c = v in c
+  
