@@ -108,7 +108,6 @@ val expr_reduce_func ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   let Func (name, expr) = expr in
   let func = FuncVal (name, expr, env) in
   (env, Ret func)
-
   
 val expr_reduce_rec_func ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   let RecFunc (func_name, arg_name, expr) = expr in

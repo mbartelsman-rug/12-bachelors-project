@@ -1,0 +1,11 @@
+(library
+  (name actors)
+  (public_name project.actors)
+  (libraries
+    core
+    base
+    stdio
+    project.common)
+  (inline_tests)
+  (preprocess
+    (pps ppx_inline_test)))

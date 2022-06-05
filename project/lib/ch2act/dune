@@ -1,0 +1,13 @@
+(library
+  (name ch2act)
+  (public_name project.ch2act)
+  (libraries
+    core
+    base
+    stdio
+    project.common
+    project.actors
+    project.channels)
+  (inline_tests)
+  (preprocess
+    (pps ppx_inline_test)))

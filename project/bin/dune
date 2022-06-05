@@ -1,0 +1,8 @@
+(executable
+  (public_name project)
+  (name main)
+  (libraries
+    core
+    base
+    stdio
+    project))

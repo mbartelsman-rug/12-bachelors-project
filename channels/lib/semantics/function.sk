@@ -9,6 +9,7 @@
 
 (* TODO: Remove environments if going with substitution *)
 
+type name_t := string_t
 type func_t := (name_t, expr_t, env_t)
 type rec_func_t := (name_t, name_t, expr_t, env_t)
 
@@ -18,8 +19,12 @@ type rec_func_t := (name_t, name_t, expr_t, env_t)
 val func_subst_in ((par, arg, expr): (name_t, value_t, expr_t)): (expr_t) =
   branch
     let Var (name) = expr in
-    let () = name_eq (name, par) in
-    Ret arg
+    branch
+      let True = string_eq (name, par) in
+      Ret arg
+    or
+      expr
+    end
   or
     let Seq (expr1, expr2) = expr in
     let expr1' = func_subst_in (par, arg, expr1) in

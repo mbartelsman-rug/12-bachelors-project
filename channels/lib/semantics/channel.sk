@@ -5,10 +5,10 @@
  * Definitions and operations on channels     *
  *============================================*)
 
-type chan_id_t := id_t
+type chan_id_t := string_t
 type chan_buff_t := queue_t<value_t>
 
 val chan_new (_:()): (chan_id_t, chan_buff_t) =
-  let id = id_new () in
+  let id = string_unique_id () in
   let buff = queue_new<value_t> () in
   (id, buff)

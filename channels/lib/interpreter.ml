@@ -1,173 +1,6 @@
-(** This file was automatically generated using necroml
-	See https://gitlab.inria.fr/skeletons/necro-ml/ for more informations *)
-
-(** The unspecified types *)
-module type TYPES = sig
-  type _ dict_t
-  type int_t
-  type _ queue_t
-  type string_t
-end
-
-(** The interpretation monad *)
-module type MONAD = sig
-  type 'a t
-  val ret: 'a -> 'a t
-  val bind: 'a t -> ('a -> 'b t) -> 'b t
-  val branch: (unit -> 'a t) list -> 'a t
-  val fail: string -> 'a t
-  val apply: ('a -> 'b t) -> 'a -> 'b t
-  val extract: 'a t -> 'a
-end
-
-(** All types, and the unspecified terms *)
-module type UNSPEC = sig
-  module M: MONAD
-  include TYPES
-
-  type value_t =
-  | UnitVal
-  | RecFuncVal of rec_func_t
-  | PairVal of pair_t
-  | IntVal of int_t
-  | FuncVal of func_t
-  | EitherVal of either_t
-  | ChanIdVal of chan_id_t
-  and expr_t =
-  | Var of name_t
-  | Take of chan_id_t
-  | Sub of (expr_t * expr_t)
-  | Snd of expr_t
-  | Seq of (expr_t * expr_t)
-  | Right of expr_t
-  | Ret of value_t
-  | RecFunc of (name_t * name_t * expr_t)
-  | Pair of (expr_t * expr_t)
-  | NewCh
-  | Neg of expr_t
-  | Mul of (expr_t * expr_t)
-  | Match of (expr_t * expr_t * expr_t)
-  | Let of (name_t * expr_t * expr_t)
-  | Left of expr_t
-  | Give of (chan_id_t * expr_t)
-  | Func of (name_t * expr_t)
-  | Fst of expr_t
-  | Fork of expr_t
-  | Div of (expr_t * expr_t)
-  | Call of (expr_t * expr_t)
-  | Add of (expr_t * expr_t)
-  and either_t =
-  | RightVal of value_t
-  | LeftVal of value_t
-  and bool_t =
-  | True
-  | False
-  and chan_buff_t = value_t queue_t
-  and chan_env_t = (value_t queue_t) dict_t
-  and chan_id_t = string_t
-  and env_t = expr_t queue_t * (value_t queue_t) dict_t * value_t dict_t
-  and func_env_t = value_t dict_t
-  and func_t = string_t * expr_t * (expr_t queue_t * (value_t queue_t) dict_t * value_t dict_t)
-  and name_t = string_t
-  and pair_t = value_t * value_t
-  and rec_func_t = string_t * string_t * expr_t * (expr_t queue_t * (value_t queue_t) dict_t * value_t dict_t)
-  and thread_pool_t = expr_t queue_t
-
-  val dict_drop: 'v dict_t * string_t -> ('v dict_t) M.t
-  val dict_has_some: 'v dict_t * string_t -> bool_t M.t
-  val dict_is_empty: 'v dict_t -> bool_t M.t
-  val dict_new: unit -> ('v dict_t) M.t
-  val dict_read: 'v dict_t * string_t -> 'v M.t
-  val dict_write: 'v dict_t * string_t * 'v -> ('v dict_t) M.t
-  val int_add: int_t * int_t -> value_t M.t
-  val int_div: int_t * int_t -> value_t M.t
-  val int_mul: int_t * int_t -> value_t M.t
-  val int_neg: int_t -> value_t M.t
-  val int_sub: int_t * int_t -> value_t M.t
-  val queue_dequeue: 'v queue_t -> ('v queue_t * 'v) M.t
-  val queue_enqueue: 'v queue_t * 'v -> ('v queue_t) M.t
-  val queue_is_empty: 'v queue_t -> bool_t M.t
-  val queue_new: unit -> ('v queue_t) M.t
-  val string_eq: string_t * string_t -> bool_t M.t
-  val string_unique_id: unit -> string_t M.t
-end
-
-(** A default instantiation *)
-module Unspec (M: MONAD) (T: TYPES) = struct
-  exception NotImplemented of string
-  include T
-  module M = M
-
-  type value_t =
-  | UnitVal
-  | RecFuncVal of rec_func_t
-  | PairVal of pair_t
-  | IntVal of int_t
-  | FuncVal of func_t
-  | EitherVal of either_t
-  | ChanIdVal of chan_id_t
-  and expr_t =
-  | Var of name_t
-  | Take of chan_id_t
-  | Sub of (expr_t * expr_t)
-  | Snd of expr_t
-  | Seq of (expr_t * expr_t)
-  | Right of expr_t
-  | Ret of value_t
-  | RecFunc of (name_t * name_t * expr_t)
-  | Pair of (expr_t * expr_t)
-  | NewCh
-  | Neg of expr_t
-  | Mul of (expr_t * expr_t)
-  | Match of (expr_t * expr_t * expr_t)
-  | Let of (name_t * expr_t * expr_t)
-  | Left of expr_t
-  | Give of (chan_id_t * expr_t)
-  | Func of (name_t * expr_t)
-  | Fst of expr_t
-  | Fork of expr_t
-  | Div of (expr_t * expr_t)
-  | Call of (expr_t * expr_t)
-  | Add of (expr_t * expr_t)
-  and either_t =
-  | RightVal of value_t
-  | LeftVal of value_t
-  and bool_t =
-  | True
-  | False
-  and chan_buff_t = value_t queue_t
-  and chan_env_t = (value_t queue_t) dict_t
-  and chan_id_t = string_t
-  and env_t = expr_t queue_t * (value_t queue_t) dict_t * value_t dict_t
-  and func_env_t = value_t dict_t
-  and func_t = string_t * expr_t * (expr_t queue_t * (value_t queue_t) dict_t * value_t dict_t)
-  and name_t = string_t
-  and pair_t = value_t * value_t
-  and rec_func_t = string_t * string_t * expr_t * (expr_t queue_t * (value_t queue_t) dict_t * value_t dict_t)
-  and thread_pool_t = expr_t queue_t
-
-  let dict_drop _ = raise (NotImplemented "dict_drop")
-  let dict_has_some _ = raise (NotImplemented "dict_has_some")
-  let dict_is_empty _ = raise (NotImplemented "dict_is_empty")
-  let dict_new _ = raise (NotImplemented "dict_new")
-  let dict_read _ = raise (NotImplemented "dict_read")
-  let dict_write _ = raise (NotImplemented "dict_write")
-  let int_add _ = raise (NotImplemented "int_add")
-  let int_div _ = raise (NotImplemented "int_div")
-  let int_mul _ = raise (NotImplemented "int_mul")
-  let int_neg _ = raise (NotImplemented "int_neg")
-  let int_sub _ = raise (NotImplemented "int_sub")
-  let queue_dequeue _ = raise (NotImplemented "queue_dequeue")
-  let queue_enqueue _ = raise (NotImplemented "queue_enqueue")
-  let queue_is_empty _ = raise (NotImplemented "queue_is_empty")
-  let queue_new _ = raise (NotImplemented "queue_new")
-  let string_eq _ = raise (NotImplemented "string_eq")
-  let string_unique_id _ = raise (NotImplemented "string_unique_id")
-end
-
 (** The module type for interpreters *)
 module type INTERPRETER = sig
-  module M: MONAD
+  module M: Monads.MONAD
 
   type _ dict_t
   type int_t
@@ -208,9 +41,6 @@ module type INTERPRETER = sig
   and either_t =
   | RightVal of value_t
   | LeftVal of value_t
-  and bool_t =
-  | True
-  | False
   and chan_buff_t = value_t queue_t
   and chan_env_t = (value_t queue_t) dict_t
   and chan_id_t = string_t
@@ -222,13 +52,12 @@ module type INTERPRETER = sig
   and rec_func_t = string_t * string_t * expr_t * (expr_t queue_t * (value_t queue_t) dict_t * value_t dict_t)
   and thread_pool_t = expr_t queue_t
 
-  val bool_and: bool_t * bool_t -> bool_t M.t
-  val bool_not: bool_t -> bool_t M.t
-  val bool_or: bool_t * bool_t -> bool_t M.t
   val chan_new: unit -> (chan_id_t * chan_buff_t) M.t
   val dict_drop: 'v dict_t * string_t -> ('v dict_t) M.t
-  val dict_has_some: 'v dict_t * string_t -> bool_t M.t
-  val dict_is_empty: 'v dict_t -> bool_t M.t
+  val dict_has_no: 'v dict_t * string_t -> ('v dict_t) M.t
+  val dict_has_some: 'v dict_t * string_t -> ('v dict_t) M.t
+  val dict_is_empty: 'v dict_t -> ('v dict_t) M.t
+  val dict_is_empty_not: 'v dict_t -> ('v dict_t) M.t
   val dict_new: unit -> ('v dict_t) M.t
   val dict_read: 'v dict_t * string_t -> 'v M.t
   val dict_write: 'v dict_t * string_t * 'v -> ('v dict_t) M.t
@@ -275,9 +104,10 @@ module type INTERPRETER = sig
   val int_sub: int_t * int_t -> value_t M.t
   val queue_dequeue: 'v queue_t -> ('v queue_t * 'v) M.t
   val queue_enqueue: 'v queue_t * 'v -> ('v queue_t) M.t
-  val queue_is_empty: 'v queue_t -> bool_t M.t
+  val queue_is_empty: 'v queue_t -> ('v queue_t) M.t
+  val queue_is_not_empty: 'v queue_t -> ('v queue_t) M.t
   val queue_new: unit -> ('v queue_t) M.t
-  val string_eq: string_t * string_t -> bool_t M.t
+  val string_eq: string_t * string_t -> unit M.t
   val string_unique_id: unit -> string_t M.t
   val value_as_chan: value_t -> chan_id_t M.t
   val value_as_either: value_t -> either_t M.t
@@ -289,53 +119,14 @@ module type INTERPRETER = sig
 end
 
 (** Module defining the specified terms *)
-module MakeInterpreter (F: UNSPEC) = struct
+module MakeInterpreter (F: Impl.SPEC) = struct
   include F
 
   let ( let* ) = M.bind
 
   let apply1 = M.apply
 
-  let rec bool_and =
-    function (a, b) ->
-    M.branch [
-      (function () ->
-        begin match a with
-        | False -> M.ret False
-        | _ -> M.fail ""
-        end) ;
-      (function () ->
-        begin match b with
-        | False -> M.ret False
-        | _ -> M.fail ""
-        end) ;
-      (function () ->
-        M.ret True)]
-  and bool_not b =
-    M.branch [
-      (function () ->
-        begin match b with
-        | True -> M.ret False
-        | _ -> M.fail ""
-        end) ;
-      (function () ->
-        M.ret True)]
-  and bool_or =
-    function (a, b) ->
-    M.branch [
-      (function () ->
-        begin match a with
-        | True -> M.ret True
-        | _ -> M.fail ""
-        end) ;
-      (function () ->
-        begin match b with
-        | True -> M.ret True
-        | _ -> M.fail ""
-        end) ;
-      (function () ->
-        M.ret False)]
-  and chan_new =
+  let rec chan_new =
     function _ ->
     let* id = apply1 string_unique_id () in
     let* buff = apply1 queue_new () in
@@ -816,15 +607,8 @@ module MakeInterpreter (F: UNSPEC) = struct
       (function () ->
         begin match expr with
         | Var name ->
-            M.branch [
-              (function () ->
-                let* _tmp = apply1 string_eq (name, par) in
-                begin match _tmp with
-                | True -> M.ret (Ret arg)
-                | _ -> M.fail ""
-                end) ;
-              (function () ->
-                M.ret expr)]
+            let* () = apply1 string_eq (name, par) in
+            M.ret (Ret arg)
         | _ -> M.fail ""
         end) ;
       (function () ->
@@ -999,3 +783,5 @@ module MakeInterpreter (F: UNSPEC) = struct
     | _ -> M.fail ""
     end
 end
+
+module Default = MakeInterpreter (Impl.Spec)

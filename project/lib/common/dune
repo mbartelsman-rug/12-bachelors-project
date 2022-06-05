@@ -1,0 +1,10 @@
+(library
+  (name common)
+  (public_name project.common)
+  (libraries
+    core
+    base
+    stdio)
+  (inline_tests)
+  (preprocess
+    (pps ppx_inline_test)))

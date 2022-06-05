@@ -1,0 +1,11 @@
+(library
+  (name channels)
+  (public_name project.channels)
+  (libraries
+    core
+    base
+    stdio
+    project.common)
+  (inline_tests)
+  (preprocess
+    (pps ppx_inline_test)))

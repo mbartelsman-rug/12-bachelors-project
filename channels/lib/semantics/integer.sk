@@ -8,7 +8,6 @@
 
 type int_t
 
-val int_new : ()             -> (value_t)
 val int_neg : (int_t)        -> (value_t)
 val int_add : (int_t, int_t) -> (value_t)
 val int_sub : (int_t, int_t) -> (value_t)
