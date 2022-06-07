@@ -1,0 +1,336 @@
+
+(*============================================*
+ * EXPRESSIONS                                *
+ *--------------------------------------------*
+ * Module containing expression definitions,  *
+ * filters, and reduction skeletons           *
+ *============================================*)
+
+type expr_t =
+| Ret (value_t)
+| Var (name_t)
+| Seq (expr_t, expr_t)
+
+(* Function operations *)
+| Func (name_t, expr_t)
+| RecFunc (name_t, name_t, expr_t)
+| Call (expr_t, expr_t)
+| Let (name_t, expr_t, expr_t)
+
+(* Integer operations *)
+| Neg (expr_t)
+| Add (expr_t, expr_t)
+| Sub (expr_t, expr_t)
+| Mul (expr_t, expr_t)
+| Div (expr_t, expr_t)
+
+(* Pair operations *)
+| Pair (expr_t, expr_t)
+| Fst  (expr_t)
+| Snd  (expr_t)
+
+(* Either operations *)
+| Left  (expr_t)
+| Right (expr_t)
+| Match (expr_t, expr_t, expr_t)
+
+(* Concurrency operations *)
+| Self
+| Receive
+| Spawn (expr_t)
+| Send (expr_t, expr_t)
+
+val expr_reduce ((env, expr): (env_t, expr_t)): (env_t, expr_t) = 
+  branch
+    expr_reduce_ret (env, expr)
+  or
+    expr_reduce_func (env, expr)
+  or
+    expr_reduce_call (env, expr)
+  or
+    expr_reduce_let (env, expr)
+  or
+    expr_reduce_neg (env, expr)
+  or
+    expr_reduce_add (env, expr)
+  or
+    expr_reduce_sub (env, expr)
+  or
+    expr_reduce_mul (env, expr)
+  or
+    expr_reduce_div (env, expr)
+  or
+    expr_reduce_pair (env, expr)
+  or
+    expr_reduce_fst (env, expr)
+  or
+    expr_reduce_snd (env, expr)
+  or
+    expr_reduce_left (env, expr)
+  or
+    expr_reduce_right (env, expr)
+  or
+    expr_reduce_match (env, expr)
+  or
+    expr_reduce_self (env, expr)
+  or
+    expr_reduce_receive (env, expr)
+  or
+    expr_reduce_spawn (env, expr)
+  or
+    expr_reduce_send (env, expr)
+  end
+
+val expr_reduce_ret ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  (* Do nothing, this is irreducible *)
+  let Ret value = expr in
+  (env, Ret value)
+
+val expr_reduce_seq ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Seq (Ret UnitVal, rest) = expr in
+    (env, rest)
+  or
+    let Seq (this, rest) = expr in
+    let (env', this') = expr_reduce (env, this) in
+    (env', Seq (this', rest))
+  end
+
+val expr_reduce_func ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  let Func (name, expr) = expr in
+  let func = FuncVal (name, expr, env) in
+  (env, Ret func)
+  
+val expr_reduce_rec_func ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  let RecFunc (func_name, arg_name, expr) = expr in
+  let func = RecFuncVal (func_name, arg_name, expr, env) in
+  (env, Ret func)
+
+val expr_reduce_call ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Call (Ret func, Ret arg_val) = expr in
+    branch
+      let (arg_name, body, _) = value_as_func (func) in
+      let body' = func_subst_in (arg_name, arg_val, body) in
+      (env, body')
+    or
+      let (func_name, arg_name, body, _) = value_as_rec_func (func) in
+      let body' = func_subst_in (func_name, func, body) in
+      let body'' = func_subst_in (arg_name, arg_val, body') in
+      (env, body'')
+    end
+  or
+    let Call (Ret func, arg) = expr in
+    let (env', arg') = expr_reduce (env, arg) in
+    (env', Call (Ret func, arg'))
+  or
+    let Call (func, arg) = expr in
+    let (env', func') = expr_reduce (env, func) in
+    (env', Call (func', arg))
+  end
+
+val expr_reduce_let ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Let (name, Ret value, body) = expr in
+    let res = func_subst_in (name, value, body) in
+    (env, res)
+  or
+    let Let (name, value, body) = expr in
+    let (env', value') = expr_reduce (env, value) in
+    (env', Let (name, value', body))
+  end
+
+val expr_reduce_neg ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Neg (Ret value) = expr in
+    let int = value_as_int (value) in
+    let int' = int_neg (int) in
+    let v = int_as_value (int') in
+    (env, Ret v)
+  or
+    let Neg expr = expr in
+    let (env', expr') = expr_reduce (env, expr) in
+    (env', Neg expr')
+  end
+
+  val expr_reduce_add ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Add (Ret lhs, Ret rhs) = expr in
+    let i = value_as_int (lhs) in
+    let j = value_as_int (rhs) in
+    let res = int_add (i, j) in
+    let res' = int_as_value (res) in
+    (env, Ret res')
+  or
+    let Add (Ret lhs, rhs) = expr in
+    let (env', rhs') = expr_reduce (env, rhs) in
+    (env', Add (Ret lhs, rhs'))
+  or
+    let Add (lhs, rhs) = expr in
+    let (env', lhs') = expr_reduce (env, lhs) in
+    (env', Add (lhs', rhs))
+  end
+
+val expr_reduce_sub ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Sub (Ret lhs, Ret rhs) = expr in
+    let i = value_as_int (lhs) in
+    let j = value_as_int (rhs) in
+    let res = int_sub (i, j) in
+    let res' = int_as_value (res) in
+    (env, Ret res')
+  or
+    let Sub (Ret lhs, rhs) = expr in
+    let (env', rhs') = expr_reduce (env, rhs) in
+    (env', Sub (Ret lhs, rhs'))
+  or
+    let Sub (lhs, rhs) = expr in
+    let (env', lhs') = expr_reduce (env, lhs) in
+    (env', Sub (lhs', rhs))
+  end
+
+val expr_reduce_mul ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Mul (Ret lhs, Ret rhs) = expr in
+    let i = value_as_int (lhs) in
+    let j = value_as_int (rhs) in
+    let res = int_mul (i, j) in
+    let res' = int_as_value (res) in
+    (env, Ret res')
+  or
+    let Mul (Ret lhs, rhs) = expr in
+    let (env', rhs') = expr_reduce (env, rhs) in
+    (env', Mul (Ret lhs, rhs'))
+  or
+    let Mul (lhs, rhs) = expr in
+    let (env', lhs') = expr_reduce (env, lhs) in
+    (env', Mul (lhs', rhs))
+  end
+
+val expr_reduce_div ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Div (Ret lhs, Ret rhs) = expr in
+    let i = value_as_int (lhs) in
+    let j = value_as_int (rhs) in
+    let res = int_div (i, j) in
+    let res' = int_as_value (res) in
+    (env, Ret res')
+  or
+    let Div (Ret lhs, rhs) = expr in
+    let (env', rhs') = expr_reduce (env, rhs) in
+    (env', Div (Ret lhs, rhs'))
+  or
+    let Div (lhs, rhs) = expr in
+    let (env', lhs') = expr_reduce (env, lhs) in
+    (env', Div (lhs', rhs))
+  end
+
+val expr_reduce_pair ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Pair (Ret fst, Ret snd) = expr in
+    let pair = PairVal (fst, snd) in
+    (env, Ret pair)
+  or
+    let Pair (Ret fst, snd) = expr in
+    let (env', snd') = expr_reduce (env, snd) in
+    (env', Pair (Ret fst, snd'))
+  or
+    let Pair (fst, snd) = expr in
+    let (env', fst') = expr_reduce (env, fst) in
+    (env', Pair (fst', snd))
+  end
+
+val expr_reduce_fst ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Fst (Ret pair) = expr in
+    let (fst, _) = value_as_pair (pair) in
+    (env, Ret fst)
+  or
+    let Fst pair = expr in
+    let (env', pair' )= expr_reduce (env, pair) in
+    (env', Fst pair')
+  end
+
+val expr_reduce_snd ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Snd (Ret pair) = expr in
+    let (_, snd) = value_as_pair (pair) in
+    (env, Ret snd)
+  or
+    let Snd pair = expr in
+    let (env', pair') = expr_reduce (env, pair) in
+    (env', Snd pair')
+  end
+
+val expr_reduce_left ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Left load = expr in
+    let (env', load') = expr_reduce (env, load) in
+    (env', Left load')
+  or
+    let Left (Ret load) = expr in
+    let either = EitherVal (LeftVal load) in
+    (env, Ret either)
+  end
+
+val expr_reduce_right ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Right load = expr in
+    let (env', load') = expr_reduce (env, load) in
+    (env', Right load')
+  or
+    let Right (Ret load) = expr in
+    let either = EitherVal (RightVal load) in
+    (env, Ret either)
+  end
+
+val expr_reduce_match ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Match (Ret either, on_left, on_right) = expr in
+    let either = value_as_either (either) in
+    branch
+      let value = either_as_left (either) in
+      (env, Call (on_left, Ret value))
+    or
+      let value = either_as_right (either) in
+      (env, Call (on_right, Ret value))
+    end
+  or
+    let Match (either, on_left, on_right) = expr in
+    let (env', either') = expr_reduce (env, either) in
+    (env', Match (either', on_left, on_right))
+  end
+
+val expr_reduce_self ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  let Self = expr in
+  let pid = actor_self (env) in
+  let pid' = PidVal pid in
+  (env, Ret pid')
+
+val expr_reduce_receive ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  let Receive = expr in
+  let pid = actor_self (env) in
+  let (env', msg) = actor_receive (env, pid) in
+  (env', Ret msg)
+
+val expr_reduce_spawn ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  let Spawn (expr) = expr in
+  let (env', pid) = actor_spawn (env, expr) in
+  let actor = PidVal pid in
+  (env', Ret actor)
+
+val expr_reduce_send ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
+  branch
+    let Send (Ret value, Ret target) = expr in
+    let pid = value_as_pid (target) in
+    let env' = actor_send (env, pid, value) in
+    (env', Ret UnitVal)
+  or
+    let Send (Ret value, target) = expr in
+    let (env', target') = expr_reduce (env, target) in
+    (env', Send (Ret value, target'))
+  or
+    let Send (value, target) = expr in
+    let (env', value') = expr_reduce (env, value) in
+    (env', Send (value', target))
+  end

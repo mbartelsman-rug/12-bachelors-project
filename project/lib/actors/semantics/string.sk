@@ -8,7 +8,7 @@
 type string_t
 
 (* Fails if the names are different *)
-val string_eq : (string_t, string_t) -> (bool_t)
+val string_eq : (string_t, string_t) -> bool_t
 
 (* Generates a new unique ID name *)
 val string_unique_id : () -> (string_t)

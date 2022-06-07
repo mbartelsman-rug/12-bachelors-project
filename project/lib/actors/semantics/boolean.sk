@@ -1,0 +1,39 @@
+
+(*============================================*
+ * BOOLEAN                                    *
+ *--------------------------------------------*
+ * Definition and filters for logic values    *
+ *============================================*)
+
+type bool_t =
+| True
+| False
+
+val bool_not (b: bool_t): bool_t =
+  branch
+    let True = b in False
+  or
+    True
+  end
+
+val bool_and ((a, b): (bool_t, bool_t)): bool_t =
+  branch
+    let False = a in
+    False
+  or
+    let False = b in
+    False
+  or
+    True
+  end
+
+val bool_or ((a, b): (bool_t, bool_t)): bool_t =
+  branch
+    let True = a in
+    True
+  or
+    let True = b in
+    True
+  or
+    False
+  end

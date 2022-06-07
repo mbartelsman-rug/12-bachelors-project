@@ -1,0 +1,120 @@
+
+(*============================================*
+ * FUNCTIONS                                  *
+ *--------------------------------------------*
+ * Contains the definitions and filters for   *
+ * operation on function closures and         *
+ * recursive functions.                       *
+ *============================================*)
+
+(* TODO: Remove environments if going with substitution *)
+
+type name_t := string_t
+type func_t := (name_t, expr_t, env_t)
+type rec_func_t := (name_t, name_t, expr_t, env_t)
+
+(* Substitutes the given parameter name by the passed argument value in the
+   expression. Will do so recursively until the entire expression tree has had
+   the substitution applied. Does not operate on values. *)
+val func_subst_in ((par, arg, expr): (name_t, value_t, expr_t)): (expr_t) =
+  branch
+    let Ret _ = expr in
+    expr
+  or
+    let Var (name) = expr in
+    branch
+      let True = string_eq (name, par) in
+      Ret arg
+    or
+      expr
+    end
+  or
+    let Seq (expr1, expr2) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    let expr2' = func_subst_in (par, arg, expr2) in
+    Seq (expr1', expr2')
+  or
+    let Func (other1, expr1) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    Func (other1, expr1')
+  or
+    let RecFunc (other1, other2, expr1) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    RecFunc (other1, other2, expr1')
+  or
+    let Call (expr1, expr2) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    let expr2' = func_subst_in (par, arg, expr2) in
+    Call (expr1', expr2')
+  or
+    let Let (other1, expr1, expr2) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    let expr2' = func_subst_in (par, arg, expr2) in
+    Let (other1, expr1', expr2')
+  or
+    let Neg (expr1) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    Neg (expr1')
+  or
+    let Add (expr1, expr2) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    let expr2' = func_subst_in (par, arg, expr2) in
+    Add (expr1', expr2')
+  or
+    let Sub (expr1, expr2) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    let expr2' = func_subst_in (par, arg, expr2) in
+    Sub (expr1', expr2')
+  or
+    let Mul (expr1, expr2) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    let expr2' = func_subst_in (par, arg, expr2) in
+    Mul (expr1', expr2')
+  or
+    let Div (expr1, expr2) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    let expr2' = func_subst_in (par, arg, expr2) in
+    Div (expr1', expr2')
+  or
+    let Pair (expr1, expr2) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    let expr2' = func_subst_in (par, arg, expr2) in
+    Pair (expr1', expr2')
+  or
+    let Fst  (expr1) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    Fst (expr1')
+  or
+    let Snd  (expr1) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    Snd (expr1')
+  or
+    let Left  (expr1) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    Left  (expr1')
+  or
+    let Right (expr1) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    Right (expr1')
+  or
+    let Match (expr1, expr2, expr3) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    let expr2' = func_subst_in (par, arg, expr2) in
+    let expr3' = func_subst_in (par, arg, expr3) in
+    Match (expr1', expr2', expr3')
+  or
+    let Give (other1, expr1) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    Give (other1, expr1')
+  or
+    let Fork (expr1) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    Fork (expr1')
+  or
+    let Take (expr1) = expr in
+    let expr1' = func_subst_in (par, arg, expr1) in
+    Take (expr1')
+  or
+    let NewCh = expr in
+    NewCh
+  end

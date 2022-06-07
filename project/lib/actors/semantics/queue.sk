@@ -1,0 +1,16 @@
+
+(*============================================*
+ * QUEUE                                      *
+ *--------------------------------------------*
+ * Definition and filter hooks for a          *
+ * polymorphic queue implementation to be     *
+ * used in the semantics of a language.       *
+ *============================================*)
+
+ type queue_t<_>
+
+ val queue_new<v> :          ()              -> (queue_t<v>)
+ val queue_enqueue<v> :      (queue_t<v>, v) -> (queue_t<v>)
+ val queue_dequeue<v> :      (queue_t<v>)    -> (queue_t<v>, v)
+ val queue_is_empty<v> :     (queue_t<v>)    -> (bool_t)
+ 

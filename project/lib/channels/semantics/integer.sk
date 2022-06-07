@@ -1,0 +1,15 @@
+
+(*============================================*
+ * INTEGER                                    *
+ *--------------------------------------------*
+ * Definition and filter hooks for integer    *
+ * operations and arithmetic semantics        *
+ *============================================*)
+
+type int_t
+
+val int_neg : (int_t)        -> (int_t)
+val int_add : (int_t, int_t) -> (int_t)
+val int_sub : (int_t, int_t) -> (int_t)
+val int_mul : (int_t, int_t) -> (int_t)
+val int_div : (int_t, int_t) -> (int_t)
