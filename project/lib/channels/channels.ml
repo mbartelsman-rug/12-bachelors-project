@@ -2,32 +2,70 @@ module Interpreter: sig
   include Interpreter.TYPES
   module M: Common.Monads.MONAD
 
-  val evaluate_all: (env_t * expr_t) -> (env_t * expr_t) M.t
-  val evaluate: (env_t * expr_t) -> expr_t
-  val reduce: (env_t * expr_t) -> (env_t * expr_t)
-  val run_and_print: int -> (env_t * expr_t) -> unit
+  val evaluate: ?print:bool -> (expr_t) -> (env_t)
 
 end = struct
   include Interpreter.Interpreter
 
-  let rec evaluate_all (env, expr) =
-    let* (env', expr') = expr_reduce (env, expr) in
-    match expr = expr' with
-    | true -> (env', expr') |> M.ret
-    | false -> evaluate_all (env', expr')
+  let select_thread env = 
+    let (tpool, ch, fn) = env in
+    let* (tpool', expr) = queue_dequeue tpool in
+    let env' = (tpool', ch, fn) in
+    M.ret (env', expr)
   
-  let evaluate = fun (x) -> snd (M.extract (evaluate_all x))
 
-  let reduce = fun (x) -> M.extract (expr_reduce x)
-  
-  let rec run_and_print count data =
-    let str = string_of_expr (snd data) in
-    print_endline str ;
-    ( match count with
-      | 0 -> ()
-      | _ -> 
-        let count' = count - 1 in
-        let res = reduce data in
-        run_and_print count' res
-    )
+  let schedule_thread (env, thread) =
+    let (tpool, ch, fn) = env in
+    let* tpool' = queue_enqueue (tpool, thread) in
+    let env' = (tpool', ch, fn) in
+    M.ret env'
+
+
+  let compare_state env1 env2 =
+    let (tpool1, _, _) = env1 in
+    let (tpool2, _, _) = env2 in
+    match tpool1 = tpool2 with
+    | true -> `Eq
+    | false -> `Diff
+
+
+  let rec print_threads' tlist tstr =
+    match tlist with
+    | thd :: ttl -> print_threads' ttl (tstr ^ "\n|| " ^ (string_of_expr thd))
+    | [] -> tstr
+    
+
+  let print_threads env =
+    let open Base in
+    let (tpool, _, _) = env in
+    let tlist = Queue.to_list tpool in
+    print_threads' tlist "|| "
+
+
+  let rec evaluate' env print =
+    let* (env, expr) = select_thread env in
+    let* (env', expr') = expr_reduce (env, expr) in
+    let* env'' = schedule_thread (env', expr') in
+
+    ( match print with
+      | true -> Stdio.print_endline (print_threads env)
+      | _ -> ()
+    ) ;
+
+    match compare_state env env'' with
+    | `Eq -> M.ret env
+    | `Diff -> evaluate' env'' print
+
+
+  let evaluate ?(print = false) expr =
+    let env = make_env () in (
+      let* env' = env_fork (env, expr) in
+      evaluate' env' print
+    ) |> M.extract
 end
+
+(* 
+  start with an expr and empty env
+  shove expr into thread
+  execute
+*)
