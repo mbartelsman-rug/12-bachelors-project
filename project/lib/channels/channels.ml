@@ -2,7 +2,7 @@ module Interpreter: sig
   include Interpreter.TYPES
   module M: Common.Monads.MONAD
 
-  val evaluate: ?print:bool -> (expr_t) -> (env_t)
+  val evaluate: ?print:bool -> (expr_t) -> (expr_t list)
 
 end = struct
   include Interpreter.Interpreter
@@ -21,14 +21,6 @@ end = struct
     M.ret env'
 
 
-  let compare_state env1 env2 =
-    let (tpool1, _, _) = env1 in
-    let (tpool2, _, _) = env2 in
-    match tpool1 = tpool2 with
-    | true -> `Eq
-    | false -> `Diff
-
-
   let rec print_threads' tlist tstr =
     match tlist with
     | thd :: ttl -> print_threads' ttl (tstr ^ "\n|| " ^ (string_of_expr thd))
@@ -42,25 +34,46 @@ end = struct
     print_threads' tlist "|| "
 
 
-  let rec evaluate' env print =
+  let check_all_threads env = 
+    let open Base in
+    let (tpool, _, _) = env in
+    match Queue.is_empty tpool with
+    | true -> `Empty
+    | false -> `NotEmpty
+
+
+  let check_thread expr =
+    match expr with
+    | Ret _ -> `Finished
+    | _ -> `NotFinished
+
+
+  let rec evaluate' env results print =
     let* (env, expr) = select_thread env in
     let* (env', expr') = expr_reduce (env, expr) in
-    let* env'' = schedule_thread (env', expr') in
-
+    let* (env'', results') = 
+    ( match check_thread expr' with
+    | `Finished -> M.ret (env', expr' :: results)
+    | `NotFinished ->
+      ( let* env'' = schedule_thread (env', expr') in
+        M.ret (env'', results)
+      )
+    ) in
     ( match print with
       | true -> Stdio.print_endline (print_threads env)
       | _ -> ()
     ) ;
-
-    match compare_state env env'' with
-    | `Eq -> M.ret env
-    | `Diff -> evaluate' env'' print
+    ( match check_all_threads env'' with
+    | `Empty -> results' |> M.ret
+    | `NotEmpty -> evaluate' env'' results' print
+    )
 
 
   let evaluate ?(print = false) expr =
-    let env = make_env () in (
-      let* env' = env_fork (env, expr) in
-      evaluate' env' print
+    let env = make_env () in
+    ( let* env' = env_fork (env, expr) in
+      let results = [] in
+      evaluate' env' results print
     ) |> M.extract
 end
 

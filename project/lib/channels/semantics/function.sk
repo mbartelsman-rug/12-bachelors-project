@@ -103,9 +103,10 @@ val func_subst_in ((par, arg, expr): (name_t, value_t, expr_t)): (expr_t) =
     let expr3' = func_subst_in (par, arg, expr3) in
     Match (expr1', expr2', expr3')
   or
-    let Give (other1, expr1) = expr in
+    let Give (expr1, expr2) = expr in
     let expr1' = func_subst_in (par, arg, expr1) in
-    Give (other1, expr1')
+    let expr2' = func_subst_in (par, arg, expr2) in
+    Give (expr1', expr2')
   or
     let Fork (expr1) = expr in
     let expr1' = func_subst_in (par, arg, expr1) in

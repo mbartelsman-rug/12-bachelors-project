@@ -79,6 +79,7 @@ module type UNSPEC = sig
   val dict_new: unit -> ('v dict_t) M.t
   val dict_read: 'v dict_t * string_t -> 'v M.t
   val dict_write: 'v dict_t * string_t * 'v -> ('v dict_t) M.t
+  val expr_throw_trace: env_t * expr_t -> (env_t * expr_t) M.t
   val int_add: int_t * int_t -> int_t M.t
   val int_div: int_t * int_t -> int_t M.t
   val int_mul: int_t * int_t -> int_t M.t
@@ -152,6 +153,7 @@ module Unspec (M: MONAD) (T: TYPES) = struct
   let dict_new _ = raise (NotImplemented "dict_new")
   let dict_read _ = raise (NotImplemented "dict_read")
   let dict_write _ = raise (NotImplemented "dict_write")
+  let expr_throw_trace _ = raise (NotImplemented "expr_throw_trace")
   let int_add _ = raise (NotImplemented "int_add")
   let int_div _ = raise (NotImplemented "int_div")
   let int_mul _ = raise (NotImplemented "int_mul")
@@ -269,6 +271,7 @@ module type INTERPRETER = sig
   val expr_reduce_snd: env_t * expr_t -> (env_t * expr_t) M.t
   val expr_reduce_sub: env_t * expr_t -> (env_t * expr_t) M.t
   val expr_reduce_take: env_t * expr_t -> (env_t * expr_t) M.t
+  val expr_throw_trace: env_t * expr_t -> (env_t * expr_t) M.t
   val func_as_value: func_t -> value_t M.t
   val func_subst_in: name_t * value_t * expr_t -> expr_t M.t
   val int_add: int_t * int_t -> int_t M.t
@@ -448,7 +451,11 @@ module MakeInterpreter (F: UNSPEC) = struct
       (function () ->
         apply1 expr_reduce_take (env, expr)) ;
       (function () ->
-        apply1 expr_reduce_fork (env, expr))]
+        apply1 expr_reduce_fork (env, expr)) ;
+      (function () ->
+        apply1 expr_reduce_seq (env, expr)) ;
+      (function () ->
+        apply1 expr_throw_trace (env, expr))]
   and expr_reduce_add =
     function (env, expr) ->
     M.branch [
@@ -768,7 +775,7 @@ module MakeInterpreter (F: UNSPEC) = struct
     M.branch [
       (function () ->
         begin match expr with
-        | Seq (Ret UnitVal, rest) -> M.ret (env, rest)
+        | Seq (Ret _, rest) -> M.ret (env, rest)
         | _ -> M.fail ""
         end) ;
       (function () ->
@@ -989,9 +996,10 @@ module MakeInterpreter (F: UNSPEC) = struct
         end) ;
       (function () ->
         begin match expr with
-        | Give (other1, expr1) ->
+        | Give (expr1, expr2) ->
             let* expr1' = apply1 func_subst_in (par, arg, expr1) in
-            M.ret (Give (other1, expr1'))
+            let* expr2' = apply1 func_subst_in (par, arg, expr2) in
+            M.ret (Give (expr1', expr2'))
         | _ -> M.fail ""
         end) ;
       (function () ->

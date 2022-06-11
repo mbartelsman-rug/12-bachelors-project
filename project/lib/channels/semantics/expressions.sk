@@ -81,6 +81,10 @@ val expr_reduce ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
     expr_reduce_take (env, expr)
   or
     expr_reduce_fork (env, expr)
+  or
+    expr_reduce_seq (env, expr)
+  or
+    expr_throw_trace (env, expr)
   end
 
 val expr_reduce_ret ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
@@ -96,7 +100,7 @@ val expr_reduce_ret ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
 
 val expr_reduce_seq ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   branch
-    let Seq (Ret UnitVal, rest) = expr in
+    let Seq (Ret _, rest) = expr in
     (env, rest)
   or
     let Seq (this, rest) = expr in
@@ -352,3 +356,5 @@ val expr_reduce_fork ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   let Fork expr = expr in
   let env' = env_fork (env, expr) in
   (env', Ret UnitVal)
+
+val expr_throw_trace: (env_t, expr_t) -> (env_t, expr_t)

@@ -128,6 +128,45 @@ module Types = struct
     let chenv = Map.empty (module String) in
     let fenv = Map.empty (module String) in
     (pool, chenv, fenv)
+    
+  let rec string_of_expr expr =
+    ( match expr with
+    | Ret value ->                  Printf.sprintf "Ret(%s)" (string_of_value value)
+    | Var name ->                   Printf.sprintf "Var(%s)" name
+    | Func (name, body) ->          Printf.sprintf "Func(%s,%s)" name (string_of_expr body)
+    | RecFunc (func, arg, body) ->  Printf.sprintf "RecFunc(%s,%s,%s)" func arg (string_of_expr body)
+    | Let (name, value, body) ->    Printf.sprintf "Let(%s,%s,%s)" name (string_of_expr value) (string_of_expr body)
+    | Seq (left, right) ->          Printf.sprintf "Seq(%s,%s)" (string_of_expr left) (string_of_expr right)
+    | Neg (num) ->                  Printf.sprintf "Neg(%s)" (string_of_expr num)
+    | Add (left, right) ->          Printf.sprintf "Add(%s,%s)" (string_of_expr left) (string_of_expr right)
+    | Sub (left, right) ->          Printf.sprintf "Sub(%s,%s)" (string_of_expr left) (string_of_expr right)
+    | Mul (left, right) ->          Printf.sprintf "Mul(%s,%s)" (string_of_expr left) (string_of_expr right)
+    | Div (left, right) ->          Printf.sprintf "Div(%s,%s)" (string_of_expr left) (string_of_expr right)
+    | Left either ->                Printf.sprintf "Left(%s)" (string_of_expr either)
+    | Right either ->               Printf.sprintf "Right(%s)" (string_of_expr either)
+    | Match (guard, left, right) -> Printf.sprintf "Match(%s,%s,%s)" (string_of_expr guard) (string_of_expr left) (string_of_expr right)
+    | Pair (left, right) ->         Printf.sprintf "Pain(%s, %s)" (string_of_expr left) (string_of_expr right)
+    | Fst pair ->                   Printf.sprintf "Fst(%s)" (string_of_expr pair)
+    | Snd pair ->                   Printf.sprintf "Snd(%s)" (string_of_expr pair)
+    | NewCh ->                                     "NewCh"
+    | Fork expr ->                  Printf.sprintf "Fork(%s)" (string_of_expr expr)
+    | Call (func, arg) ->           Printf.sprintf "Call(%s,%s)" (string_of_expr func) (string_of_expr arg)
+    | Give (chan, value) ->         Printf.sprintf "Give(%s,%s)" (string_of_expr chan) (string_of_expr value)
+    | Take chan ->                  Printf.sprintf "Take(%s)" (string_of_expr chan)
+    )
+    
+  and string_of_value value = 
+    ( match value with
+    | UnitVal                         ->                "()"
+    | RecFuncVal (func, arg, body, _) -> Printf.sprintf "<fun %s:(%s) -> (%s)>" func arg (string_of_expr body)
+    | PairVal (l, r)                  -> Printf.sprintf "<(%s, %s)>" (string_of_value l) (string_of_value r)
+    | IntVal (i)                      -> Printf.sprintf "<%d>" i
+    | FuncVal (arg, body, _)          -> Printf.sprintf "<fun (%s) -> (%s)>" arg (string_of_expr body)
+    | EitherVal (LeftVal v)           -> Printf.sprintf "<Left(%s)>" (string_of_value v)
+    | EitherVal (RightVal v)          -> Printf.sprintf "<Right(%s)>" (string_of_value v)
+    | ChanIdVal (chan)                -> Printf.sprintf "<%s>" chan
+    )
+
 end
 
 (** All types, and the unspecified terms *)
@@ -152,6 +191,7 @@ module type UNSPEC = sig
   val queue_new: unit -> ('v queue_t) M.t
   val string_eq: string_t * string_t -> bool_t M.t
   val string_unique_id: unit -> string_t M.t
+  val expr_throw_trace: env_t * expr_t -> (env_t * expr_t) M.t
 end
 
 (** A default instantiation *)
@@ -159,6 +199,8 @@ module Unspec = struct
   open Base
   include Types
   module M = Common.Monads.Identity
+
+  exception TraceFail of string
 
   let int_neg (num) =
     (-num)
@@ -240,45 +282,7 @@ module Unspec = struct
     Queue.enqueue queue value ;
     M.ret queue
     
-
-  let rec string_of_expr expr =
-    ( match expr with
-    | Ret value ->                  string_of_value value
-    | Var name ->                   name
-    | Func (name, body) ->          Printf.sprintf "(%s) -> (%s)" name (string_of_expr body)
-    | RecFunc (func, arg, body) ->  Printf.sprintf "%s:(%s) -> (%s)" func arg (string_of_expr body)
-    | Let (name, value, body) ->    Printf.sprintf "let %s = %s in (%s)" name (string_of_expr value) (string_of_expr body)
-    | Seq (left, right) ->          Printf.sprintf "(%s) ; (%s)" (string_of_expr left) (string_of_expr right)
-    | Neg (num) ->                  Printf.sprintf "-%s" (string_of_expr num)
-    | Add (left, right) ->          Printf.sprintf "%s + %s" (string_of_expr left) (string_of_expr right)
-    | Sub (left, right) ->          Printf.sprintf "%s - %s" (string_of_expr left) (string_of_expr right)
-    | Mul (left, right) ->          Printf.sprintf "%s * %s" (string_of_expr left) (string_of_expr right)
-    | Div (left, right) ->          Printf.sprintf "%s / %s" (string_of_expr left) (string_of_expr right)
-    | Left either ->                Printf.sprintf "left (%s)" (string_of_expr either)
-    | Right either ->               Printf.sprintf "right (%s)" (string_of_expr either)
-    | Match (guard, left, right) -> Printf.sprintf "match (%s) with Left (%s) | Right (%s)" (string_of_expr guard) (string_of_expr left) (string_of_expr right)
-    | Pair (left, right) ->         Printf.sprintf "(%s, %s)" (string_of_expr left) (string_of_expr right)
-    | Fst pair ->                   Printf.sprintf "fst (%s)" (string_of_expr pair)
-    | Snd pair ->                   Printf.sprintf "snd (%s)" (string_of_expr pair)
-    | NewCh ->                                     "NewCh"
-    | Fork expr ->                  Printf.sprintf "fork(%s)" (string_of_expr expr)
-    | Call (func, arg) ->           Printf.sprintf "(%s) (%s)" (string_of_expr func) (string_of_expr arg)
-    | Give (chan, value) ->         Printf.sprintf "%s! %s" (string_of_expr chan) (string_of_expr value)
-    | Take chan ->                  Printf.sprintf "%s?" (string_of_expr chan)
-    )
-    
-  and string_of_value value = 
-    ( match value with
-    | UnitVal                         ->                "()"
-    | RecFuncVal (func, arg, body, _) -> Printf.sprintf "<fun %s:(%s) -> (%s)>" func arg (string_of_expr body)
-    | PairVal (l, r)                  -> Printf.sprintf "<(%s, %s)>" (string_of_value l) (string_of_value r)
-    | IntVal (i)                      -> Printf.sprintf "<%d>" i
-    | FuncVal (arg, body, _)          -> Printf.sprintf "<fun (%s) -> (%s)>" arg (string_of_expr body)
-    | EitherVal (LeftVal v)           -> Printf.sprintf "<Left(%s)>" (string_of_value v)
-    | EitherVal (RightVal v)          -> Printf.sprintf "<Right(%s)>" (string_of_value v)
-    | ChanIdVal (chan)                -> Printf.sprintf "<%s>" chan
-    )
-
+  let expr_throw_trace (_, expr) = raise (TraceFail ("Could not match " ^ (string_of_expr expr)))
 end
 
 (** The module type for interpreters *)
@@ -385,6 +389,7 @@ module type INTERPRETER = sig
   val expr_reduce_snd: env_t * expr_t -> (env_t * expr_t) M.t
   val expr_reduce_sub: env_t * expr_t -> (env_t * expr_t) M.t
   val expr_reduce_take: env_t * expr_t -> (env_t * expr_t) M.t
+  val expr_throw_trace: env_t * expr_t -> (env_t * expr_t) M.t
   val func_as_value: func_t -> value_t M.t
   val func_subst_in: name_t * value_t * expr_t -> expr_t M.t
   val int_add: int_t * int_t -> int_t M.t
@@ -564,7 +569,11 @@ module MakeInterpreter (F: UNSPEC) = struct
       (function () ->
         apply1 expr_reduce_take (env, expr)) ;
       (function () ->
-        apply1 expr_reduce_fork (env, expr))]
+        apply1 expr_reduce_fork (env, expr)) ;
+      (function () ->
+        apply1 expr_reduce_seq (env, expr)) ;
+      (function () ->
+        apply1 expr_throw_trace (env, expr))]
   and expr_reduce_add =
     function (env, expr) ->
     M.branch [
@@ -884,7 +893,7 @@ module MakeInterpreter (F: UNSPEC) = struct
     M.branch [
       (function () ->
         begin match expr with
-        | Seq (Ret UnitVal, rest) -> M.ret (env, rest)
+        | Seq (Ret _, rest) -> M.ret (env, rest)
         | _ -> M.fail ""
         end) ;
       (function () ->
@@ -1105,9 +1114,10 @@ module MakeInterpreter (F: UNSPEC) = struct
         end) ;
       (function () ->
         begin match expr with
-        | Give (other1, expr1) ->
+        | Give (expr1, expr2) ->
             let* expr1' = apply1 func_subst_in (par, arg, expr1) in
-            M.ret (Give (other1, expr1'))
+            let* expr2' = apply1 func_subst_in (par, arg, expr2) in
+            M.ret (Give (expr1', expr2'))
         | _ -> M.fail ""
         end) ;
       (function () ->
