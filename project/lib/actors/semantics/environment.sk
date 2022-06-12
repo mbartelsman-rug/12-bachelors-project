@@ -8,35 +8,42 @@
 
 (* TODO: Maybe remove func_env *)
 
-type env_t := (thread_pool_t, act_env_t, func_env_t)
+type env_t := (pid_t, thread_pool_t, act_env_t, func_env_t)
 
 type thread_pool_t := queue_t<(pid_t, expr_t)>
 type act_env_t := dict_t<inbox_t>
 type func_env_t := dict_t<value_t>
 
+val env_get_pid (env: env_t): (pid_t) =
+  let (pid, _, _, _) = env in pid
+
+val env_set_pid ((env, pid'): (env_t, pid_t)): (env_t) =
+  let (_, th, ch, fn) = env in
+  (pid', th, ch, fn)
+
 val env_get_threads (env: env_t): (thread_pool_t) =
-  let (th, _, _) = env in th
+  let (_, th, _, _) = env in th
 
 val env_set_threads ((env, th'): (env_t, thread_pool_t)): (env_t) =
-  let (_, ch, fn) = env in
-  (th', ch, fn)
+  let (pid, _, ch, fn) = env in
+  (pid, th', ch, fn)
 
 val env_get_inbox ((env, pid): (env_t, pid_t)): (inbox_t) =
-  let (_, boxes, _) = env in
+  let (_, _, boxes, _) = env in
   let inbox = dict_read<inbox_t> (boxes, pid) in
   inbox
 
 val env_set_inbox ((env, pid, inbox): (env_t, pid_t, inbox_t)): (env_t) =
-  let (th, boxes, fn) = env in
+  let (self, th, boxes, fn) = env in
   let boxes' = dict_write<inbox_t> (boxes, pid, inbox) in
-  (th, boxes', fn)
+  (self, th, boxes', fn)
 
 val env_get_functions (env: env_t): (func_env_t) =
-  let (_, _, fn) = env in fn
+  let (_, _, _, fn) = env in fn
 
 val env_set_functions ((env, fn'): (env_t, func_env_t)): (env_t) =
-  let (th, ch, _) = env in
-  (th, ch, fn')
+  let (pid, th, ch, _) = env in
+  (pid, th, ch, fn')
 
 val env_read_func ((env, name): (env_t, name_t)): (value_t) =
   let funs = env_get_functions (env) in

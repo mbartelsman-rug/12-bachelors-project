@@ -8,7 +8,8 @@
 type pid_t := string_t
 type inbox_t := queue_t<value_t>
 
-val actor_self: (env_t) -> (pid_t)
+val actor_self (env: env_t): (pid_t) =
+  env_get_pid (env)
 
 val actor_receive ((env, pid): (env_t, pid_t)): (env_t, value_t) =
   let inbox = env_get_inbox (env, pid) in

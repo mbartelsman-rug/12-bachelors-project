@@ -164,7 +164,7 @@ module Types = struct
     | FuncVal (arg, body, _)          -> Printf.sprintf "<fun (%s) -> (%s)>" arg (string_of_expr body)
     | EitherVal (LeftVal v)           -> Printf.sprintf "<Left(%s)>" (string_of_value v)
     | EitherVal (RightVal v)          -> Printf.sprintf "<Right(%s)>" (string_of_value v)
-    | ChanIdVal (chan)                -> Printf.sprintf "<%s>" chan
+    | ChanIdVal (chan)                -> Printf.sprintf "<CH:%s>" chan
     )
 
 end
@@ -233,7 +233,7 @@ module Unspec = struct
   let string_unique_id () =
     let id = ! next_id in
     next_id := id + 1 ;
-    Printf.sprintf "[id:%d]" id
+    Printf.sprintf "[%d]" id
     |> M.ret
 
   let dict_new () =

@@ -1,31 +1,9 @@
-(** This file was automatically generated using necroml
-	See https://gitlab.inria.fr/skeletons/necro-ml/ for more informations *)
-
-(** The unspecified types *)
 module type TYPES = sig
   type _ dict_t
-  type int_t
-  type _ queue_t
-  type string_t
-end
-
-(** The interpretation monad *)
-module type MONAD = sig
-  type 'a t
-  val ret: 'a -> 'a t
-  val bind: 'a t -> ('a -> 'b t) -> 'b t
-  val branch: (unit -> 'a t) list -> 'a t
-  val fail: string -> 'a t
-  val apply: ('a -> 'b t) -> 'a -> 'b t
-  val extract: 'a t -> 'a
-end
-
-(** All types, and the unspecified terms *)
-module type UNSPEC = sig
-  module M: MONAD
-  include TYPES
-
-  type value_t =
+  and int_t
+  and _ queue_t
+  and string_t
+  and value_t =
   | UnitVal
   | RecFuncVal of rec_func_t
   | PidVal of pid_t
@@ -72,6 +50,130 @@ module type UNSPEC = sig
   and pid_t = string_t
   and rec_func_t = string_t * string_t * expr_t * (string_t * (string_t * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t)
   and thread_pool_t = (string_t * expr_t) queue_t
+
+  val make_env: unit -> env_t
+  val make_int: int -> value_t
+  val make_bool: bool -> bool_t
+  val make_name: string -> name_t
+  val string_of_expr: expr_t -> string
+  val string_of_value: value_t -> string
+end
+
+module Types = struct
+  open Base
+
+  type int_t = Int.t
+  and string_t = String.t
+  and 'v dict_t = 'v Map.M(String).t
+  and 'v queue_t = 'v Queue.t
+  and value_t =
+  | UnitVal
+  | RecFuncVal of rec_func_t
+  | PidVal of pid_t
+  | PairVal of pair_t
+  | IntVal of int_t
+  | FuncVal of func_t
+  | EitherVal of either_t
+  and expr_t =
+  | Var of name_t
+  | Sub of (expr_t * expr_t)
+  | Spawn of expr_t
+  | Snd of expr_t
+  | Seq of (expr_t * expr_t)
+  | Send of (expr_t * expr_t)
+  | Self
+  | Right of expr_t
+  | Ret of value_t
+  | Receive
+  | RecFunc of (name_t * name_t * expr_t)
+  | Pair of (expr_t * expr_t)
+  | Neg of expr_t
+  | Mul of (expr_t * expr_t)
+  | Match of (expr_t * expr_t * expr_t)
+  | Let of (name_t * expr_t * expr_t)
+  | Left of expr_t
+  | Func of (name_t * expr_t)
+  | Fst of expr_t
+  | Div of (expr_t * expr_t)
+  | Call of (expr_t * expr_t)
+  | Add of (expr_t * expr_t)
+  and either_t =
+  | RightVal of value_t
+  | LeftVal of value_t
+  and bool_t =
+  | True
+  | False
+  and act_env_t = (value_t queue_t) dict_t
+  and env_t = string_t * (string_t * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t
+  and func_env_t = value_t dict_t
+  and func_t = string_t * expr_t * (string_t * (string_t * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t)
+  and inbox_t = value_t queue_t
+  and name_t = string_t
+  and pair_t = value_t * value_t
+  and pid_t = string_t
+  and rec_func_t = string_t * string_t * expr_t * (string_t * (string_t * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t)
+  and thread_pool_t = (string_t * expr_t) queue_t
+
+  let make_int num = IntVal num
+
+  let make_bool (b: bool) =
+    match b with
+    | true -> True
+    | false -> False
+
+  let make_name name = name
+
+  let make_env () =
+    let pid = "[root]" in
+    let pool = Queue.of_list [] in
+    let chenv = Map.empty (module String) in
+    let fenv = Map.empty (module String) in
+    (pid, pool, chenv, fenv)
+    
+  let rec string_of_expr expr =
+    ( match expr with
+    | Ret value ->                  Printf.sprintf "Ret(%s)" (string_of_value value)
+    | Var name ->                   Printf.sprintf "Var(%s)" name
+    | Func (name, body) ->          Printf.sprintf "Func(%s,%s)" name (string_of_expr body)
+    | RecFunc (func, arg, body) ->  Printf.sprintf "RecFunc(%s,%s,%s)" func arg (string_of_expr body)
+    | Let (name, value, body) ->    Printf.sprintf "Let(%s,%s,%s)" name (string_of_expr value) (string_of_expr body)
+    | Seq (left, right) ->          Printf.sprintf "Seq(%s,%s)" (string_of_expr left) (string_of_expr right)
+    | Neg (num) ->                  Printf.sprintf "Neg(%s)" (string_of_expr num)
+    | Add (left, right) ->          Printf.sprintf "Add(%s,%s)" (string_of_expr left) (string_of_expr right)
+    | Sub (left, right) ->          Printf.sprintf "Sub(%s,%s)" (string_of_expr left) (string_of_expr right)
+    | Mul (left, right) ->          Printf.sprintf "Mul(%s,%s)" (string_of_expr left) (string_of_expr right)
+    | Div (left, right) ->          Printf.sprintf "Div(%s,%s)" (string_of_expr left) (string_of_expr right)
+    | Left either ->                Printf.sprintf "Left(%s)" (string_of_expr either)
+    | Right either ->               Printf.sprintf "Right(%s)" (string_of_expr either)
+    | Match (guard, left, right) -> Printf.sprintf "Match(%s,%s,%s)" (string_of_expr guard) (string_of_expr left) (string_of_expr right)
+    | Pair (left, right) ->         Printf.sprintf "Pain(%s, %s)" (string_of_expr left) (string_of_expr right)
+    | Fst pair ->                   Printf.sprintf "Fst(%s)" (string_of_expr pair)
+    | Snd pair ->                   Printf.sprintf "Snd(%s)" (string_of_expr pair)
+    | Self ->                                      "Self"
+    | Spawn expr ->                 Printf.sprintf "Spawn(%s)" (string_of_expr expr)
+    | Call (func, arg) ->           Printf.sprintf "Call(%s,%s)" (string_of_expr func) (string_of_expr arg)
+    | Send (value, target) ->       Printf.sprintf "Send(%s,%s)" (string_of_expr value) (string_of_expr target)
+    | Receive ->                                   "Receive"
+    )
+    
+  and string_of_value value = 
+    ( match value with
+    | UnitVal                         ->                "()"
+    | RecFuncVal (func, arg, body, _) -> Printf.sprintf "<fun %s:(%s) -> (%s)>" func arg (string_of_expr body)
+    | PairVal (l, r)                  -> Printf.sprintf "<(%s, %s)>" (string_of_value l) (string_of_value r)
+    | IntVal (i)                      -> Printf.sprintf "<%d>" i
+    | FuncVal (arg, body, _)          -> Printf.sprintf "<fun (%s) -> (%s)>" arg (string_of_expr body)
+    | EitherVal (LeftVal v)           -> Printf.sprintf "<Left(%s)>" (string_of_value v)
+    | EitherVal (RightVal v)          -> Printf.sprintf "<Right(%s)>" (string_of_value v)
+    | PidVal (chan)                -> Printf.sprintf "<PID:%s>" chan
+    )
+
+end
+
+(** All types, and the unspecified terms *)
+module type UNSPEC = sig
+  include TYPES
+  module M: Common.Monads.MONAD
 
   val dict_drop: 'v dict_t * string_t -> ('v dict_t) M.t
   val dict_has_some: 'v dict_t * string_t -> bool_t M.t
@@ -94,82 +196,99 @@ module type UNSPEC = sig
 end
 
 (** A default instantiation *)
-module Unspec (M: MONAD) (T: TYPES) = struct
-  exception NotImplemented of string
-  include T
-  module M = M
+module Unspec = struct
+  open Base
+  include Types
+  module M = Common.Monads.Identity
 
-  type value_t =
-  | UnitVal
-  | RecFuncVal of rec_func_t
-  | PidVal of pid_t
-  | PairVal of pair_t
-  | IntVal of int_t
-  | FuncVal of func_t
-  | EitherVal of either_t
-  and expr_t =
-  | Var of name_t
-  | Sub of (expr_t * expr_t)
-  | Spawn of expr_t
-  | Snd of expr_t
-  | Seq of (expr_t * expr_t)
-  | Send of (expr_t * expr_t)
-  | Self
-  | Right of expr_t
-  | Ret of value_t
-  | Receive
-  | RecFunc of (name_t * name_t * expr_t)
-  | Pair of (expr_t * expr_t)
-  | Neg of expr_t
-  | Mul of (expr_t * expr_t)
-  | Match of (expr_t * expr_t * expr_t)
-  | Let of (name_t * expr_t * expr_t)
-  | Left of expr_t
-  | Func of (name_t * expr_t)
-  | Fst of expr_t
-  | Div of (expr_t * expr_t)
-  | Call of (expr_t * expr_t)
-  | Add of (expr_t * expr_t)
-  and either_t =
-  | RightVal of value_t
-  | LeftVal of value_t
-  and bool_t =
-  | True
-  | False
-  and act_env_t = (value_t queue_t) dict_t
-  and env_t = string_t * (string_t * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t
-  and func_env_t = value_t dict_t
-  and func_t = string_t * expr_t * (string_t * (string_t * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t)
-  and inbox_t = value_t queue_t
-  and name_t = string_t
-  and pair_t = value_t * value_t
-  and pid_t = string_t
-  and rec_func_t = string_t * string_t * expr_t * (string_t * (string_t * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t)
-  and thread_pool_t = (string_t * expr_t) queue_t
+  exception TraceFail of string
 
-  let dict_drop _ = raise (NotImplemented "dict_drop")
-  let dict_has_some _ = raise (NotImplemented "dict_has_some")
-  let dict_is_empty _ = raise (NotImplemented "dict_is_empty")
-  let dict_new _ = raise (NotImplemented "dict_new")
-  let dict_read _ = raise (NotImplemented "dict_read")
-  let dict_write _ = raise (NotImplemented "dict_write")
-  let expr_throw_trace _ = raise (NotImplemented "expr_throw_trace")
-  let int_add _ = raise (NotImplemented "int_add")
-  let int_div _ = raise (NotImplemented "int_div")
-  let int_mul _ = raise (NotImplemented "int_mul")
-  let int_neg _ = raise (NotImplemented "int_neg")
-  let int_sub _ = raise (NotImplemented "int_sub")
-  let queue_dequeue _ = raise (NotImplemented "queue_dequeue")
-  let queue_enqueue _ = raise (NotImplemented "queue_enqueue")
-  let queue_is_empty _ = raise (NotImplemented "queue_is_empty")
-  let queue_new _ = raise (NotImplemented "queue_new")
-  let string_eq _ = raise (NotImplemented "string_eq")
-  let string_unique_id _ = raise (NotImplemented "string_unique_id")
+  let int_neg (num) =
+    (-num)
+    |> M.ret
+
+  let int_add (lhs, rhs) = 
+    (lhs + rhs)
+    |> M.ret
+
+  let int_sub (lhs, rhs) = 
+    (lhs - rhs)
+    |> M.ret
+
+  let int_mul (lhs, rhs) = 
+    (lhs * rhs)
+    |> M.ret
+
+  let int_div (lhs, rhs) = 
+    (lhs / rhs)
+    |> M.ret
+
+  let string_eq (a, b) = 
+    String.equal a b
+    |> make_bool
+    |> M.ret
+
+  let next_id =
+    ref 0
+
+  let string_unique_id () =
+    let id = ! next_id in
+    next_id := id + 1 ;
+    Printf.sprintf "[%d]" id
+    |> M.ret
+
+  let dict_new () =
+    Map.empty (module String)
+    |> M.ret
+
+  let dict_drop (dict, key) =
+    Map.remove dict key
+    |> M.ret
+    
+  let dict_has_some (dict, key) =
+    ( match Map.find dict key with
+      | Some _ -> True
+      | None   -> False
+    ) |> M.ret
+
+  let dict_is_empty dict =
+    Map.is_empty dict
+    |> make_bool
+    |> M.ret
+
+  let dict_read (dict, key) =
+    match Map.find dict key with
+      | Some v -> v |> M.ret
+      | None   -> M.fail "Key not found"
+
+  let dict_write (dict, key, value) =
+    Map.set dict ~key:key ~data:value
+    |> M.ret
+
+  let queue_new () =
+    Queue.of_list []
+    |> M.ret
+
+  let queue_is_empty queue =
+    Queue.is_empty queue
+    |> make_bool
+    |> M.ret
+
+  let queue_dequeue queue = 
+    match Queue.dequeue queue with
+    | Some v -> M.ret (queue, v)
+    | None   -> M.fail "Queue is empty"
+
+  let queue_enqueue (queue, value) = 
+    Queue.enqueue queue value ;
+    M.ret queue
+    
+  let expr_throw_trace (_, expr) = raise (TraceFail ("Could not match " ^ (string_of_expr expr)))
 end
 
 (** The module type for interpreters *)
 module type INTERPRETER = sig
-  module M: MONAD
+  module M: Common.Monads.MONAD
 
   type _ dict_t
   type int_t
@@ -303,7 +422,6 @@ end
 (** Module defining the specified terms *)
 module MakeInterpreter (F: UNSPEC) = struct
   include F
-
   let ( let* ) = M.bind
 
   let apply1 = M.apply
@@ -1060,3 +1178,5 @@ module MakeInterpreter (F: UNSPEC) = struct
     | _ -> M.fail ""
     end
 end
+
+module Interpreter = MakeInterpreter(Unspec)

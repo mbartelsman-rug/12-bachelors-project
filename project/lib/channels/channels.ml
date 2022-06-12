@@ -23,7 +23,7 @@ end = struct
 
   let rec print_threads' tlist tstr =
     match tlist with
-    | thd :: ttl -> print_threads' ttl (tstr ^ "\n|| " ^ (string_of_expr thd))
+    | thd :: ttl -> print_threads' ttl (tstr ^ "|| " ^ (string_of_expr thd) ^ "\n")
     | [] -> tstr
     
 
@@ -31,7 +31,7 @@ end = struct
     let open Base in
     let (tpool, _, _) = env in
     let tlist = Queue.to_list tpool in
-    print_threads' tlist "|| "
+    print_threads' tlist "\n"
 
 
   let check_all_threads env = 
