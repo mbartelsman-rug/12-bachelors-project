@@ -43,8 +43,6 @@ type expr_t =
 val expr_reduce ((env, expr): (env_t, expr_t)): (env_t, expr_t) = 
   branch
     expr_reduce_ret (env, expr)
-  (* or
-    expr_reduce_var (env, expr) *)
   or
     expr_reduce_func (env, expr)
   or
@@ -92,12 +90,6 @@ val expr_reduce_ret ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   let Ret value = expr in
   (env, Ret value)
 
-(* TODO: Decide on substitution vs. variable environment *)
-(* val expr_reduce_var ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
-  let Var name = expr in
-  let value = dict_read<> (env, name) in
-  (env, Ret value) *)
-
 val expr_reduce_seq ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   branch
     let Seq (Ret _, rest) = expr in
@@ -110,23 +102,23 @@ val expr_reduce_seq ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
 
 val expr_reduce_func ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   let Func (name, expr) = expr in
-  let func = FuncVal (name, expr, env) in
+  let func = FuncVal (name, expr) in
   (env, Ret func)
   
 val expr_reduce_rec_func ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   let RecFunc (func_name, arg_name, expr) = expr in
-  let func = RecFuncVal (func_name, arg_name, expr, env) in
+  let func = RecFuncVal (func_name, arg_name, expr) in
   (env, Ret func)
 
 val expr_reduce_call ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   branch
     let Call (Ret func, Ret arg_val) = expr in
     branch
-      let (arg_name, body, _) = value_as_func (func) in
+      let (arg_name, body) = value_as_func (func) in
       let body' = func_subst_in (arg_name, arg_val, body) in
       (env, body')
     or
-      let (func_name, arg_name, body, _) = value_as_rec_func (func) in
+      let (func_name, arg_name, body) = value_as_rec_func (func) in
       let body' = func_subst_in (func_name, func, body) in
       let body'' = func_subst_in (arg_name, arg_val, body') in
       (env, body'')

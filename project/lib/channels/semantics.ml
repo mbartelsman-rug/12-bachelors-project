@@ -67,10 +67,10 @@ module type UNSPEC = sig
   and chan_id_t = string_t
   and env_t = expr_t queue_t * (value_t queue_t) dict_t * value_t dict_t
   and func_env_t = value_t dict_t
-  and func_t = string_t * expr_t * (expr_t queue_t * (value_t queue_t) dict_t * value_t dict_t)
+  and func_t = string_t * expr_t
   and name_t = string_t
   and pair_t = value_t * value_t
-  and rec_func_t = string_t * string_t * expr_t * (expr_t queue_t * (value_t queue_t) dict_t * value_t dict_t)
+  and rec_func_t = string_t * string_t * expr_t
   and thread_pool_t = expr_t queue_t
 
   val dict_drop: 'v dict_t * string_t -> ('v dict_t) M.t
@@ -141,10 +141,10 @@ module Unspec (M: MONAD) (T: TYPES) = struct
   and chan_id_t = string_t
   and env_t = expr_t queue_t * (value_t queue_t) dict_t * value_t dict_t
   and func_env_t = value_t dict_t
-  and func_t = string_t * expr_t * (expr_t queue_t * (value_t queue_t) dict_t * value_t dict_t)
+  and func_t = string_t * expr_t
   and name_t = string_t
   and pair_t = value_t * value_t
-  and rec_func_t = string_t * string_t * expr_t * (expr_t queue_t * (value_t queue_t) dict_t * value_t dict_t)
+  and rec_func_t = string_t * string_t * expr_t
   and thread_pool_t = expr_t queue_t
 
   let dict_drop _ = raise (NotImplemented "dict_drop")
@@ -218,10 +218,10 @@ module type INTERPRETER = sig
   and chan_id_t = string_t
   and env_t = expr_t queue_t * (value_t queue_t) dict_t * value_t dict_t
   and func_env_t = value_t dict_t
-  and func_t = string_t * expr_t * (expr_t queue_t * (value_t queue_t) dict_t * value_t dict_t)
+  and func_t = string_t * expr_t
   and name_t = string_t
   and pair_t = value_t * value_t
-  and rec_func_t = string_t * string_t * expr_t * (expr_t queue_t * (value_t queue_t) dict_t * value_t dict_t)
+  and rec_func_t = string_t * string_t * expr_t
   and thread_pool_t = expr_t queue_t
 
   val bool_and: bool_t * bool_t -> bool_t M.t
@@ -491,11 +491,11 @@ module MakeInterpreter (F: UNSPEC) = struct
         | Call (Ret func, Ret arg_val) ->
             M.branch [
               (function () ->
-                let* (arg_name, body, _) = apply1 value_as_func func in
+                let* (arg_name, body) = apply1 value_as_func func in
                 let* body' = apply1 func_subst_in (arg_name, arg_val, body) in
                 M.ret (env, body')) ;
               (function () ->
-                let* (func_name, arg_name, body, _) = apply1 value_as_rec_func func in
+                let* (func_name, arg_name, body) = apply1 value_as_rec_func func in
                 let* body' = apply1 func_subst_in (func_name, func, body) in
                 let* body'' = apply1 func_subst_in (arg_name, arg_val, body') in
                 M.ret (env, body''))]
@@ -571,7 +571,7 @@ module MakeInterpreter (F: UNSPEC) = struct
     function (env, expr) ->
     begin match expr with
     | Func (name, expr) ->
-        let func = FuncVal (name, expr, env) in
+        let func = FuncVal (name, expr) in
         M.ret (env, Ret func)
     | _ -> M.fail ""
     end
@@ -743,7 +743,7 @@ module MakeInterpreter (F: UNSPEC) = struct
     function (env, expr) ->
     begin match expr with
     | RecFunc (func_name, arg_name, expr) ->
-        let func = RecFuncVal (func_name, arg_name, expr, env) in
+        let func = RecFuncVal (func_name, arg_name, expr) in
         M.ret (env, Ret func)
     | _ -> M.fail ""
     end

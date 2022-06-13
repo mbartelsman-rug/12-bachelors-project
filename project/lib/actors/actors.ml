@@ -2,19 +2,19 @@ module Interpreter: sig
   include Interpreter.TYPES
   module M: Common.Monads.MONAD
 
-  val evaluate: ?print:bool -> (expr_t) -> (expr_t list)
+  val evaluate: ?print:bool -> (expr_t) -> ((pid_t * expr_t) list)
 
 end = struct
   include Interpreter.Interpreter
 
-  let select_thread env = 
+  let select_actor env = 
     let (_, tpool, ch, fn) = env in
     let* (tpool', (pid, expr)) = queue_dequeue tpool in
     let env' = (pid, tpool', ch, fn) in
-    M.ret (env', expr)
+    M.ret (env', pid, expr)
   
 
-  let schedule_thread (env, thread) =
+  let schedule_actor (env, thread) =
     let (pid, tpool, ch, fn) = env in
     let* tpool' = queue_enqueue (tpool, (pid, thread)) in
     let env' = ("", tpool', ch, fn) in
@@ -35,7 +35,7 @@ end = struct
     print_threads' tlist "\n"
 
 
-  let check_all_threads env = 
+  let check_all_actors env = 
     let open Base in
     let (_, tpool, _, _) = env in
     begin match Queue.is_empty tpool with
@@ -44,7 +44,7 @@ end = struct
     end
 
 
-  let check_thread expr =
+  let check_actor expr =
     begin match expr with
     | Ret _ -> `Finished
     | _ -> `NotFinished
@@ -52,20 +52,20 @@ end = struct
 
 
   let rec evaluate' env results print =
-    let* (env, expr) = select_thread env in
+    let* (env, pid, expr) = select_actor env in
     let* (env', expr') = expr_reduce (env, expr) in
     let* (env'', results') = 
-    begin match check_thread expr' with
-    | `Finished -> M.ret (env', expr' :: results)
+    begin match check_actor expr' with
+    | `Finished    -> M.ret (env', (pid, expr') :: results)
     | `NotFinished ->
-      let* env'' = schedule_thread (env', expr') in
+      let* env'' = schedule_actor (env', expr') in
       M.ret (env'', results)
     end in
     begin match print with
-    | true -> Stdio.print_endline (print_threads env)
-    | _ -> ()
+    | true  -> Stdio.print_endline (print_threads env)
+    | false -> ()
     end ;
-    begin match check_all_threads env'' with
+    begin match check_all_actors env'' with
     | `Empty -> results' |> M.ret
     | `NotEmpty -> evaluate' env'' results' print
     end
@@ -74,7 +74,6 @@ end = struct
   let evaluate ?(print = false) expr =
     let env = make_env () in
     ( let* (env', _) = actor_spawn (env, expr) in
-      let results = [] in
-      evaluate' env' results print
+      evaluate' env' [] print
     ) |> M.extract
 end
