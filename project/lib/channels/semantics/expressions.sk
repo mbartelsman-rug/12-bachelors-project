@@ -268,24 +268,24 @@ val expr_reduce_snd ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
 
 val expr_reduce_left ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   branch
-    let Left load = expr in
-    let (env', load') = expr_reduce (env, load) in
-    (env', Left load')
-  or
     let Left (Ret load) = expr in
     let either = EitherVal (LeftVal load) in
     (env, Ret either)
+  or
+    let Left load = expr in
+    let (env', load') = expr_reduce (env, load) in
+    (env', Left load')
   end
 
 val expr_reduce_right ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   branch
-    let Right load = expr in
-    let (env', load') = expr_reduce (env, load) in
-    (env', Right load')
-  or
     let Right (Ret load) = expr in
     let either = EitherVal (RightVal load) in
     (env, Ret either)
+  or
+    let Right load = expr in
+    let (env', load') = expr_reduce (env, load) in
+    (env', Right load')
   end
 
 val expr_reduce_match ((env, expr): (env_t, expr_t)): (env_t, expr_t) =

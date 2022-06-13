@@ -607,16 +607,16 @@ module MakeInterpreter (F: UNSPEC) = struct
     M.branch [
       (function () ->
         begin match expr with
-        | Left load ->
-            let* (env', load') = apply1 expr_reduce (env, load) in
-            M.ret (env', Left load')
+        | Left Ret load ->
+            let either = EitherVal (LeftVal load) in
+            M.ret (env, Ret either)
         | _ -> M.fail ""
         end) ;
       (function () ->
         begin match expr with
-        | Left Ret load ->
-            let either = EitherVal (LeftVal load) in
-            M.ret (env, Ret either)
+        | Left load ->
+            let* (env', load') = apply1 expr_reduce (env, load) in
+            M.ret (env', Left load')
         | _ -> M.fail ""
         end)]
   and expr_reduce_let =
@@ -758,16 +758,16 @@ module MakeInterpreter (F: UNSPEC) = struct
     M.branch [
       (function () ->
         begin match expr with
-        | Right load ->
-            let* (env', load') = apply1 expr_reduce (env, load) in
-            M.ret (env', Right load')
+        | Right Ret load ->
+            let either = EitherVal (RightVal load) in
+            M.ret (env, Ret either)
         | _ -> M.fail ""
         end) ;
       (function () ->
         begin match expr with
-        | Right Ret load ->
-            let either = EitherVal (RightVal load) in
-            M.ret (env, Ret either)
+        | Right load ->
+            let* (env', load') = apply1 expr_reduce (env, load) in
+            M.ret (env', Right load')
         | _ -> M.fail ""
         end)]
   and expr_reduce_seq =

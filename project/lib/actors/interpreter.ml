@@ -43,12 +43,12 @@ module type TYPES = sig
   and act_env_t = (value_t queue_t) dict_t
   and env_t = string_t * (string_t * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t
   and func_env_t = value_t dict_t
-  and func_t = string_t * expr_t * (string_t * (string_t * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t)
+  and func_t = string_t * expr_t
   and inbox_t = value_t queue_t
   and name_t = string_t
   and pair_t = value_t * value_t
   and pid_t = string_t
-  and rec_func_t = string_t * string_t * expr_t * (string_t * (string_t * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t)
+  and rec_func_t = string_t * string_t * expr_t
   and thread_pool_t = (string_t * expr_t) queue_t
 
   val make_env: unit -> env_t
@@ -106,12 +106,12 @@ module Types = struct
   and act_env_t = (value_t queue_t) dict_t
   and env_t = string_t * (string_t * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t
   and func_env_t = value_t dict_t
-  and func_t = string_t * expr_t * (string_t * (string_t * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t)
+  and func_t = string_t * expr_t
   and inbox_t = value_t queue_t
   and name_t = string_t
   and pair_t = value_t * value_t
   and pid_t = string_t
-  and rec_func_t = string_t * string_t * expr_t * (string_t * (string_t * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t)
+  and rec_func_t = string_t * string_t * expr_t
   and thread_pool_t = (string_t * expr_t) queue_t
 
   let make_int num = IntVal num
@@ -159,13 +159,13 @@ module Types = struct
   and string_of_value value = 
     ( match value with
     | UnitVal                         ->                "()"
-    | RecFuncVal (func, arg, body, _) -> Printf.sprintf "<fun %s:(%s) -> (%s)>" func arg (string_of_expr body)
+    | RecFuncVal (func, arg, body)    -> Printf.sprintf "<fun %s:(%s) -> (%s)>" func arg (string_of_expr body)
     | PairVal (l, r)                  -> Printf.sprintf "<(%s, %s)>" (string_of_value l) (string_of_value r)
     | IntVal (i)                      -> Printf.sprintf "<%d>" i
-    | FuncVal (arg, body, _)          -> Printf.sprintf "<fun (%s) -> (%s)>" arg (string_of_expr body)
+    | FuncVal (arg, body)             -> Printf.sprintf "<fun (%s) -> (%s)>" arg (string_of_expr body)
     | EitherVal (LeftVal v)           -> Printf.sprintf "<Left(%s)>" (string_of_value v)
     | EitherVal (RightVal v)          -> Printf.sprintf "<Right(%s)>" (string_of_value v)
-    | PidVal (chan)                -> Printf.sprintf "<PID:%s>" chan
+    | PidVal (chan)                   -> Printf.sprintf "<PID:%s>" chan
     )
 
 end
@@ -335,12 +335,12 @@ module type INTERPRETER = sig
   and act_env_t = (value_t queue_t) dict_t
   and env_t = string_t * (string_t * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t
   and func_env_t = value_t dict_t
-  and func_t = string_t * expr_t * (string_t * (string_t * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t)
+  and func_t = string_t * expr_t
   and inbox_t = value_t queue_t
   and name_t = string_t
   and pair_t = value_t * value_t
   and pid_t = string_t
-  and rec_func_t = string_t * string_t * expr_t * (string_t * (string_t * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t)
+  and rec_func_t = string_t * string_t * expr_t
   and thread_pool_t = (string_t * expr_t) queue_t
 
   val actor_receive: env_t * pid_t -> (env_t * value_t) M.t
@@ -620,11 +620,11 @@ module MakeInterpreter (F: UNSPEC) = struct
         | Call (Ret func, Ret arg_val) ->
             M.branch [
               (function () ->
-                let* (arg_name, body, _) = apply1 value_as_func func in
+                let* (arg_name, body) = apply1 value_as_func func in
                 let* body' = apply1 func_subst_in (arg_name, arg_val, body) in
                 M.ret (env, body')) ;
               (function () ->
-                let* (func_name, arg_name, body, _) = apply1 value_as_rec_func func in
+                let* (func_name, arg_name, body) = apply1 value_as_rec_func func in
                 let* body' = apply1 func_subst_in (func_name, func, body) in
                 let* body'' = apply1 func_subst_in (arg_name, arg_val, body') in
                 M.ret (env, body''))]
@@ -692,7 +692,7 @@ module MakeInterpreter (F: UNSPEC) = struct
     function (env, expr) ->
     begin match expr with
     | Func (name, expr) ->
-        let func = FuncVal (name, expr, env) in
+        let func = FuncVal (name, expr) in
         M.ret (env, Ret func)
     | _ -> M.fail ""
     end
@@ -701,16 +701,16 @@ module MakeInterpreter (F: UNSPEC) = struct
     M.branch [
       (function () ->
         begin match expr with
-        | Left load ->
-            let* (env', load') = apply1 expr_reduce (env, load) in
-            M.ret (env', Left load')
+        | Left Ret load ->
+            let either = EitherVal (LeftVal load) in
+            M.ret (env, Ret either)
         | _ -> M.fail ""
         end) ;
       (function () ->
         begin match expr with
-        | Left Ret load ->
-            let either = EitherVal (LeftVal load) in
-            M.ret (env, Ret either)
+        | Left load ->
+            let* (env', load') = apply1 expr_reduce (env, load) in
+            M.ret (env', Left load')
         | _ -> M.fail ""
         end)]
   and expr_reduce_let =
@@ -827,7 +827,7 @@ module MakeInterpreter (F: UNSPEC) = struct
     function (env, expr) ->
     begin match expr with
     | RecFunc (func_name, arg_name, expr) ->
-        let func = RecFuncVal (func_name, arg_name, expr, env) in
+        let func = RecFuncVal (func_name, arg_name, expr) in
         M.ret (env, Ret func)
     | _ -> M.fail ""
     end
@@ -851,16 +851,16 @@ module MakeInterpreter (F: UNSPEC) = struct
     M.branch [
       (function () ->
         begin match expr with
-        | Right load ->
-            let* (env', load') = apply1 expr_reduce (env, load) in
-            M.ret (env', Right load')
+        | Right Ret load ->
+            let either = EitherVal (RightVal load) in
+            M.ret (env, Ret either)
         | _ -> M.fail ""
         end) ;
       (function () ->
         begin match expr with
-        | Right Ret load ->
-            let either = EitherVal (RightVal load) in
-            M.ret (env, Ret either)
+        | Right load ->
+            let* (env', load') = apply1 expr_reduce (env, load) in
+            M.ret (env', Right load')
         | _ -> M.fail ""
         end)]
   and expr_reduce_self =
@@ -877,8 +877,7 @@ module MakeInterpreter (F: UNSPEC) = struct
     M.branch [
       (function () ->
         begin match expr with
-        | Send (Ret value, Ret target) ->
-            let* pid = apply1 value_as_pid target in
+        | Send (Ret value, Ret PidVal pid) ->
             let* env' = apply1 actor_send (env, pid, value) in
             M.ret (env', Ret UnitVal)
         | _ -> M.fail ""

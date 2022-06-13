@@ -102,23 +102,23 @@ val expr_reduce_seq ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
 
 val expr_reduce_func ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   let Func (name, expr) = expr in
-  let func = FuncVal (name, expr, env) in
+  let func = FuncVal (name, expr) in
   (env, Ret func)
   
 val expr_reduce_rec_func ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   let RecFunc (func_name, arg_name, expr) = expr in
-  let func = RecFuncVal (func_name, arg_name, expr, env) in
+  let func = RecFuncVal (func_name, arg_name, expr) in
   (env, Ret func)
 
 val expr_reduce_call ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   branch
     let Call (Ret func, Ret arg_val) = expr in
     branch
-      let (arg_name, body, _) = value_as_func (func) in
+      let (arg_name, body) = value_as_func (func) in
       let body' = func_subst_in (arg_name, arg_val, body) in
       (env, body')
     or
-      let (func_name, arg_name, body, _) = value_as_rec_func (func) in
+      let (func_name, arg_name, body) = value_as_rec_func (func) in
       let body' = func_subst_in (func_name, func, body) in
       let body'' = func_subst_in (arg_name, arg_val, body') in
       (env, body'')
@@ -268,24 +268,24 @@ val expr_reduce_snd ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
 
 val expr_reduce_left ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   branch
-    let Left load = expr in
-    let (env', load') = expr_reduce (env, load) in
-    (env', Left load')
-  or
     let Left (Ret load) = expr in
     let either = EitherVal (LeftVal load) in
     (env, Ret either)
+  or
+    let Left load = expr in
+    let (env', load') = expr_reduce (env, load) in
+    (env', Left load')
   end
 
 val expr_reduce_right ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   branch
-    let Right load = expr in
-    let (env', load') = expr_reduce (env, load) in
-    (env', Right load')
-  or
     let Right (Ret load) = expr in
     let either = EitherVal (RightVal load) in
     (env, Ret either)
+  or
+    let Right load = expr in
+    let (env', load') = expr_reduce (env, load) in
+    (env', Right load')
   end
 
 val expr_reduce_match ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
@@ -325,8 +325,7 @@ val expr_reduce_spawn ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
 
 val expr_reduce_send ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   branch
-    let Send (Ret value, Ret target) = expr in
-    let pid = value_as_pid (target) in
+    let Send (Ret value, Ret (PidVal pid)) = expr in
     let env' = actor_send (env, pid, value) in
     (env', Ret UnitVal)
   or

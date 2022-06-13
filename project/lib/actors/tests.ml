@@ -167,7 +167,7 @@ let%test "test_right" =
   let left = [
     Ret (
       (EitherVal (
-        (RightVal (UnitVal))
+        (RightVal UnitVal)
       ))
     )
   ] in
@@ -176,62 +176,52 @@ let%test "test_right" =
   ) in
   (left = right)
 
+
 let%test "test_comms" =
   let (>>) = fun a b -> Seq (a, b) in
   let left = [
     Ret (make_int 7)
   ] in
   let right = evaluate (
-    Let (
-      (make_name "ch"),
-      (NewCh),
-      (Give (
-        (Var (make_name "ch")),
-        (Ret (make_int 7))
-      )) >>
-      (Take (
-        (Var (make_name "ch"))
-      ))
-    )
+    (Send (
+      (Ret (make_int 7)),
+      (Self)
+    )) >>
+    (Receive)
   ) in
   (left = right)
 
-let%test "test_fork" =
+let%test "test_spawn" =
   let (>>) = fun a b -> Seq (a, b) in
   let left = [
     Ret (make_int 7) ;
     Ret (make_int 7)
   ] in
   let right = evaluate (
-    Fork (
+    Spawn (
       (Ret (make_int 7))
     ) >>
     (Ret (make_int 7))
   ) in
   (left = right)
 
-let%test "test_forked_comms" =
+let%test "test_spawned_comms" =
 let (>>) = fun a b -> Seq (a, b) in
 let left = [
   Ret (make_int 7) ;
   Ret UnitVal ;
-  Ret UnitVal
 ] in
 let right = evaluate (
   Let (
-    (make_name "ch"),
-    (NewCh),
-    (Fork (
-      (Take (
-        (Var (make_name "ch"))
+    (make_name "parent"),
+    (Self),
+    (Spawn (
+      (Send (
+        (Ret (make_int 7)),
+        (Var "parent")
       ))
     )) >>
-    (Fork (
-      (Give (
-        (Var (make_name "ch")),
-        (Ret (make_int 7))
-      ))
-    ))
+    (Receive)
   )
 ) in
 (left = right)

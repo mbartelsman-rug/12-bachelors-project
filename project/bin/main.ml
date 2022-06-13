@@ -2,7 +2,7 @@ let rec print_list list =
   match list with
   | [] -> ()
   | hd :: tail ->
-  ( Stdio.print_endline (Channels.string_of_expr hd) ;
+  ( Stdio.print_endline (Actors.string_of_expr hd) ;
     print_list tail
   )
 
@@ -47,23 +47,8 @@ let _ =
             (Fork d))))))))
   ) in
 
-  let (>>) = fun a b -> Channels.Seq (a, b) in
-  let sample = Channels.(
-    Let (
-      (make_name "ch"),
-      (NewCh),
-      (Fork (
-        (Take (
-          (Var (make_name "ch"))
-        ))
-      )) >>
-      (Fork (
-        (Give (
-          (Var (make_name "ch")),
-          (Ret (make_int 7))
-        ))
-      ))
-    )
+  let sample = Actors.(
+    Right (Ret UnitVal)
   ) in
   
-  print_list (Channels.evaluate sample ~print:true)
+  print_list (Actors.evaluate sample ~print:true)

@@ -10,8 +10,8 @@
 (* TODO: Remove environments if going with substitution *)
 
 type name_t := string_t
-type func_t := (name_t, expr_t, env_t)
-type rec_func_t := (name_t, name_t, expr_t, env_t)
+type func_t := (name_t, expr_t)
+type rec_func_t := (name_t, name_t, expr_t)
 
 (* Substitutes the given parameter name by the passed argument value in the
    expression. Will do so recursively until the entire expression tree has had
