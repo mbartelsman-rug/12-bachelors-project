@@ -9,62 +9,64 @@ type lit_t =
 | IntVal (int_t)
 
 type expr_act_t =
-| Ret (lit_t)
-| Var (name_t)
-| Seq (expr_act_t, expr_act_t)
+| ActRet (lit_t)
+| ActVar (name_t)
+| ActSeq (expr_act_t, expr_act_t)
 
-| Func (name_t, expr_act_t)
-| RecFunc (name_t, name_t, expr_act_t)
-| Call (expr_act_t, expr_act_t)
-| Let (name_t, expr_act_t, expr_act_t)
+| ActFunc (name_t, expr_act_t)
+| ActRecFunc (name_t, name_t, expr_act_t)
+| ActCall (expr_act_t, expr_act_t)
+| ActLet (name_t, expr_act_t, expr_act_t)
 
-| Neg (expr_act_t)
-| Add (expr_act_t, expr_act_t)
-| Sub (expr_act_t, expr_act_t)
-| Mul (expr_act_t, expr_act_t)
-| Div (expr_act_t, expr_act_t)
+| ActNeg (expr_act_t)
+| ActAdd (expr_act_t, expr_act_t)
+| ActSub (expr_act_t, expr_act_t)
+| ActMul (expr_act_t, expr_act_t)
+| ActDiv (expr_act_t, expr_act_t)
 
-| Pair (expr_act_t, expr_act_t)
-| Fst  (expr_act_t)
-| Snd  (expr_act_t)
+| ActPair (expr_act_t, expr_act_t)
+| ActFst  (expr_act_t)
+| ActSnd  (expr_act_t)
 
-| Left  (expr_act_t)
-| Right (expr_act_t)
-| Match (expr_act_t, expr_act_t, expr_act_t)
+| ActLeft  (expr_act_t)
+| ActRight (expr_act_t)
+| ActMatch (expr_act_t, expr_act_t, expr_act_t)
 
-| Self
-| Receive
-| Spawn (expr_act_t)
-| Send (expr_act_t, expr_act_t)
+| ActSelf
+| ActReceive
+| ActSpawn (expr_act_t)
+| ActSend (expr_act_t, expr_act_t)
 
 type expr_ch_t =
-| Ret (lit_t)
-| Var (name_t)
-| Seq (expr_ch_t, expr_ch_t)
+| ChRet (lit_t)
+| ChVar (name_t)
+| ChSeq (expr_ch_t, expr_ch_t)
 
-| Func (name_t, expr_ch_t)
-| RecFunc (name_t, name_t, expr_ch_t)
-| Call (expr_ch_t, expr_ch_t)
-| Let (name_t, expr_ch_t, expr_ch_t)
+| ChFunc (name_t, expr_ch_t)
+| ChRecFunc (name_t, name_t, expr_ch_t)
+| ChCall (expr_ch_t, expr_ch_t)
+| ChLet (name_t, expr_ch_t, expr_ch_t)
 
-| Neg (expr_ch_t)
-| Add (expr_ch_t, expr_ch_t)
-| Sub (expr_ch_t, expr_ch_t)
-| Mul (expr_ch_t, expr_ch_t)
-| Div (expr_ch_t, expr_ch_t)
+| ChNeg (expr_ch_t)
+| ChAdd (expr_ch_t, expr_ch_t)
+| ChSub (expr_ch_t, expr_ch_t)
+| ChMul (expr_ch_t, expr_ch_t)
+| ChDiv (expr_ch_t, expr_ch_t)
 
-| Pair (expr_ch_t, expr_ch_t)
-| Fst  (expr_ch_t)
-| Snd  (expr_ch_t)
+| ChPair (expr_ch_t, expr_ch_t)
+| ChFst  (expr_ch_t)
+| ChSnd  (expr_ch_t)
 
-| Left  (expr_ch_t)
-| Right (expr_ch_t)
-| Match (expr_ch_t, expr_ch_t, expr_ch_t)
+| ChLeft  (expr_ch_t)
+| ChRight (expr_ch_t)
+| ChMatch (expr_ch_t, expr_ch_t, expr_ch_t)
 
-| NewCh
-| Give (expr_ch_t, expr_ch_t)
-| Take (expr_ch_t)
-| Fork (expr_ch_t)
+| ChNewCh
+| ChGive (expr_ch_t, expr_ch_t)
+| ChTake (expr_ch_t)
+| ChFork (expr_ch_t)
+
+val string_unique_id : () -> (string_t)
 
 val translate ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
   branch
@@ -113,130 +115,131 @@ val translate ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
     translate_send (expr, ch)
   end
 
-val translate_ret ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  let Ret (value) = expr in
-  Ret (value)
+val translate_ret ((expr, _): (expr_act_t, chan_t)): (expr_ch_t) =
+  let ActRet (value) = expr in
+  ChRet (value)
 
-val translate_var ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  let Var (name) = expr in
-  Var (name)
+val translate_var ((expr, _): (expr_act_t, chan_t)): (expr_ch_t) =
+  let ActVar (name) = expr in
+  ChVar (name)
 
 val translate_seq ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  let Seq (act_a, act_b) = expr in
+  let ActSeq (act_a, act_b) = expr in
   let ch_a = translate (act_a, ch) in
   let ch_b = translate (act_b, ch) in
-  Seq (ch_a, ch_b)
+  ChSeq (ch_a, ch_b)
 
 val translate_func ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  let Func (param, act_body) = expr in
+  let ActFunc (param, act_body) = expr in
   let ch_param = string_unique_id () in
   let ch_body = translate (act_body, ch) in
-  Func (param, Func (ch_param, ch_body))
+  ChFunc (param, ChFunc (ch_param, ch_body))
 
 val translate_rec_func ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  let Recfunc (name, param, act_body) = expr in
+  let ActRecFunc (name, param, act_body) = expr in
   let ch_param = string_unique_id () in
   let ch_body = translate (act_body, ch) in
-  Recfunc (name, param, Func (ch_param, ch_body))
+  ChRecFunc (name, param, ChFunc (ch_param, ch_body))
   (* TODO: ^^^ Verify this ^^^ *)
 
 val translate_call ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  let Call (act_func, act_arg) = expr in
+  let ActCall (act_func, act_arg) = expr in
   let name = string_unique_id () in
   let ch_func = translate (act_func, ch) in
   let ch_arg = translate (act_arg, ch) in
-  Let (name, 
-    Call (ch_func, ch_arg),
-    Call (Var (name), Var (ch))
+  ChLet (name, 
+    ChCall (ch_func, ch_arg),
+    ChCall (ChVar (name), ChVar (ch))
   )
 
 val translate_let ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  let Let (param, act_arg, act_body) = expr in
+  let ActLet (param, act_arg, act_body) = expr in
   let ch_arg = translate (act_arg, ch) in
   let ch_body = translate (act_body, ch) in
-  Let (param, ch_arg, ch_body)
+  ChLet (param, ch_arg, ch_body)
 
 val translate_neg ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  let Neg (act_i) = expr in
+  let ActNeg (act_i) = expr in
   let ch_i = translate (act_i, ch) in
-  Neg (ch_i)
+  ChNeg (ch_i)
 
 val translate_add ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  let Add (act_i, act_j) = expr in
+  let ActAdd (act_i, act_j) = expr in
   let ch_i = translate (act_i, ch) in
   let ch_j = translate (act_j, ch) in
-  Add (ch_i, ch_j)
+  ChAdd (ch_i, ch_j)
 
 val translate_sub ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  let Sub (act_i, act_j) = expr in
+  let ActSub (act_i, act_j) = expr in
   let ch_i = translate (act_i, ch) in
   let ch_j = translate (act_j, ch) in
-  Sub (ch_i, ch_j)
+  ChSub (ch_i, ch_j)
 
 val translate_mul ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  let Mul (act_i, act_j) = expr in
+  let ActMul (act_i, act_j) = expr in
   let ch_i = translate (act_i, ch) in
   let ch_j = translate (act_j, ch) in
-  Mul (ch_i, ch_j)
+  ChMul (ch_i, ch_j)
 
 val translate_div ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  let Div (act_i, act_j) = expr in
+  let ActDiv (act_i, act_j) = expr in
   let ch_i = translate (act_i, ch) in
   let ch_j = translate (act_j, ch) in
-  Div (ch_i, ch_j)
+  ChDiv (ch_i, ch_j)
 
 val translate_pair ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  let Pair (act_fst, act_snd) = expr in
+  let ActPair (act_fst, act_snd) = expr in
   let ch_fst = translate (act_fst, ch) in
   let ch_snd = translate (act_snd, ch) in
-  Seq (ch_fst, ch_snd)
+  ChSeq (ch_fst, ch_snd)
 
 val translate_fst ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  let Fst (act_pair) = expr in
+  let ActFst (act_pair) = expr in
   let ch_pair = translate (act_pair, ch) in
-  Fst (ch_pair)
+  ChFst (ch_pair)
   
 val translate_snd ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  let Snd (act_pair) = expr in
+  let ActSnd (act_pair) = expr in
   let ch_pair = translate (act_pair, ch) in
-  Snd (ch_pair)
+  ChSnd (ch_pair)
 
 val translate_left ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  let Left (act_cont) = expr in
+  let ActLeft (act_cont) = expr in
   let ch_cont = translate (act_cont, ch) in
-  Left (ch_cont)
+  ChLeft (ch_cont)
 
 val translate_right ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  let Right (act_cont) = expr in
+  let ActRight (act_cont) = expr in
   let ch_cont = translate (act_cont, ch) in
-  Right (ch_cont)
+  ChRight (ch_cont)
 
 val translate_match ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  (* TODO *)
-  let Match (arg, act_left, act_right) = expr in
-  Ret UnitVal
+  let ActMatch (act_arg, act_left, act_right) = expr in
+  let ch_arg = translate (act_arg, ch) in
+  let ch_left = translate (act_left, ch) in
+  let ch_right = translate (act_right, ch) in
+  ChMatch (ch_arg, ch_left, ch_right)
 
 val translate_self ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  let Self = expr in
-  Var (ch)
+  let ActSelf = expr in
+  ChVar (ch)
 
 val translate_receive ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  let Receive = expr in
-  Take (Var (ch))
+  let ActReceive = expr in
+  ChTake (ChVar (ch))
 
-val translate_spawn ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  let Spawn (act_expr) = expr in
+val translate_spawn ((expr, _): (expr_act_t, chan_t)): (expr_ch_t) =
+  let ActSpawn (act_expr) = expr in
   let new_ch = string_unique_id () in
-  let ch_expr = translate (act_expr, new_ch)
-  Let (new_ch, NewCh,
-    Seq (
-      Fork (ch_expr),
-      Var (new_ch)
-    )
-  )
+  let ch_expr = translate (act_expr, new_ch) in
+  ChLet (new_ch, ChNewCh,
+  ChSeq (
+    ChFork (ch_expr),
+    ChVar (new_ch)
+  ))
 
 val translate_send ((expr, ch): (expr_act_t, chan_t)): (expr_ch_t) =
-  let Send (act_msg, act_tgt) = expr in
+  let ActSend (act_msg, act_tgt) = expr in
   let ch_msg = translate (act_msg , ch) in
   let ch_tgt = translate (act_tgt , ch) in
-  Give (ch_tgt, ch_msg)
+  ChGive (ch_tgt, ch_msg)
