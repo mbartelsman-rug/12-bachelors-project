@@ -216,14 +216,12 @@ val translate_match (expr: expr_ch_t): (expr_act_t) =
 val translate_new_ch (expr: expr_ch_t): (expr_act_t) =
   let ChNewCh = expr in
   let body_expr = body () in
-  let list_1 = list_empty () in
-  let list_2 = list_empty () in
   ActSpawn (
     ActCall (
       body_expr,
       ActPair (
-        list_1,
-        list_2
+        ActLeft (ActRet UnitVal),
+        ActLeft (ActRet UnitVal)
       )
     )
   )
@@ -255,4 +253,3 @@ val translate_fork (expr: expr_ch_t): (expr_act_t) =
 val list_empty (_: ()): expr_act_t = ActLeft (ActRet UnitVal)
 
 val body: () -> expr_act_t
-val drain: () -> expr_act_t

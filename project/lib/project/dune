@@ -8,8 +8,8 @@
     project.common
     project.actors
     project.channels
-    project.act2ch
-    project.ch2act)
+    project.act2Ch
+    project.ch2Act)
   (inline_tests)
   (preprocess
     (pps ppx_inline_test)))

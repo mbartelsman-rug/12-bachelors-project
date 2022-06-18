@@ -1,6 +1,6 @@
 (library
-  (name ch2act)
-  (public_name project.ch2act)
+  (name ch2Act)
+  (public_name project.ch2Act)
   (libraries
     core
     base
@@ -11,3 +11,7 @@
   (inline_tests)
   (preprocess
     (pps ppx_inline_test)))
+(env
+  (dev
+    (flags
+      (:standard -w -30)))) ; Silence "duplicate-definitions"

@@ -1,6 +1,6 @@
 (library
-  (name act2ch)
-  (public_name project.act2ch)
+  (name act2Ch)
+  (public_name project.act2Ch)
   (libraries
     core
     base

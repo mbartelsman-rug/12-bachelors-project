@@ -463,3 +463,5 @@ module MakeInterpreter (F: UNSPEC) = struct
     | _ -> M.fail ""
     end
 end
+
+module Interpreter = struct end

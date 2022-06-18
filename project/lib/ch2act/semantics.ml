@@ -76,7 +76,6 @@ module type UNSPEC = sig
   and name_t = string_t
 
   val body: unit -> expr_act_t M.t
-  val drain: unit -> expr_act_t M.t
   val string_unique_id: unit -> string_t M.t
 end
 
@@ -139,7 +138,6 @@ module Unspec (M: MONAD) (T: TYPES) = struct
   and name_t = string_t
 
   let body _ = raise (NotImplemented "body")
-  let drain _ = raise (NotImplemented "drain")
   let string_unique_id _ = raise (NotImplemented "string_unique_id")
 end
 
@@ -203,7 +201,6 @@ module type INTERPRETER = sig
   and name_t = string_t
 
   val body: unit -> expr_act_t M.t
-  val drain: unit -> expr_act_t M.t
   val list_empty: unit -> expr_act_t M.t
   val string_unique_id: unit -> string_t M.t
   val translate: expr_ch_t -> expr_act_t M.t
@@ -385,9 +382,7 @@ module MakeInterpreter (F: UNSPEC) = struct
     begin match expr with
     | ChNewCh ->
         let* body_expr = apply1 body () in
-        let* list_1 = apply1 list_empty () in
-        let* list_2 = apply1 list_empty () in
-        M.ret (ActSpawn (ActCall (body_expr, ActPair (list_1, list_2))))
+        M.ret (ActSpawn (ActCall (body_expr, ActPair (ActLeft (ActRet UnitVal), ActLeft (ActRet UnitVal)))))
     | _ -> M.fail ""
     end
   and translate_pair expr =
