@@ -1,29 +1,10 @@
-(** This file was automatically generated using necroml
-	See https://gitlab.inria.fr/skeletons/necro-ml/ for more informations *)
-
-(** The unspecified types *)
-module type TYPES = sig
-  type int_t
-  type string_t
-end
-
-(** The interpretation monad *)
-module type MONAD = sig
-  type 'a t
-  val ret: 'a -> 'a t
-  val bind: 'a t -> ('a -> 'b t) -> 'b t
-  val branch: (unit -> 'a t) list -> 'a t
-  val fail: string -> 'a t
-  val apply: ('a -> 'b t) -> 'a -> 'b t
-  val extract: 'a t -> 'a
-end
-
 (** All types, and the unspecified terms *)
 module type UNSPEC = sig
-  module M: MONAD
-  include TYPES
+  module M: Common.Monads.MONAD
 
-  type lit_t =
+  type int_t
+  and string_t
+  and lit_t =
   | UnitVal
   | IntVal of int_t
   and expr_ch_t =
@@ -76,15 +57,22 @@ module type UNSPEC = sig
   and name_t = string_t
 
   val string_unique_id: unit -> string_t M.t
+  val make_name: string -> string_t
+  val make_int: int -> lit_t
+  val string_of_ch_expr: expr_ch_t -> string
+  val string_of_value: lit_t -> string
 end
 
 (** A default instantiation *)
-module Unspec (M: MONAD) (T: TYPES) = struct
+module Unspec = struct
+  open Base
   exception NotImplemented of string
   include T
-  module M = M
+  module M = Common.Monads.Identity
 
-  type lit_t =
+  type int_t = Int.t
+  and string_t = String.t
+  and lit_t =
   | UnitVal
   | IntVal of int_t
   and expr_ch_t =
@@ -136,69 +124,56 @@ module Unspec (M: MONAD) (T: TYPES) = struct
   and chan_t = string_t
   and name_t = string_t
 
-  let string_unique_id _ = raise (NotImplemented "string_unique_id")
+  let next_id =
+    ref 0
+
+  let string_unique_id () =
+    let id = ! next_id in
+    next_id := id + 1 ;
+    Printf.sprintf "[%d]" id
+    |> M.ret
+
+  let make_name s = s
+
+  let make_int i = IntVal i
+  
+  let rec string_of_ch_expr expr =
+    ( match expr with
+    | ChRet value ->                  Printf.sprintf "Ret(%s)" (string_of_value value)
+    | ChVar name ->                   Printf.sprintf "Var(\"%s\")" name
+    | ChFunc (name, body) ->          Printf.sprintf "Func(\"%s\",%s)" name (string_of_ch_expr body)
+    | ChRecFunc (func, arg, body) ->  Printf.sprintf "RecFunc(\"%s\",\"%s\",%s)" func arg (string_of_ch_expr body)
+    | ChLet (name, value, body) ->    Printf.sprintf "Let(\"%s\",%s,%s)" name (string_of_ch_expr value) (string_of_ch_expr body)
+    | ChSeq (left, right) ->          Printf.sprintf "Seq(%s,%s)" (string_of_ch_expr left) (string_of_ch_expr right)
+    | ChNeg (num) ->                  Printf.sprintf "Neg(%s)" (string_of_ch_expr num)
+    | ChAdd (left, right) ->          Printf.sprintf "Add(%s,%s)" (string_of_ch_expr left) (string_of_ch_expr right)
+    | ChSub (left, right) ->          Printf.sprintf "Sub(%s,%s)" (string_of_ch_expr left) (string_of_ch_expr right)
+    | ChMul (left, right) ->          Printf.sprintf "Mul(%s,%s)" (string_of_ch_expr left) (string_of_ch_expr right)
+    | ChDiv (left, right) ->          Printf.sprintf "Div(%s,%s)" (string_of_ch_expr left) (string_of_ch_expr right)
+    | ChLeft either ->                Printf.sprintf "Left(%s)" (string_of_ch_expr either)
+    | ChRight either ->               Printf.sprintf "Right(%s)" (string_of_ch_expr either)
+    | ChMatch (guard, left, right) -> Printf.sprintf "Match(%s,%s,%s)" (string_of_ch_expr guard) (string_of_ch_expr left) (string_of_ch_expr right)
+    | ChPair (left, right) ->         Printf.sprintf "Pain(%s, %s)" (string_of_ch_expr left) (string_of_ch_expr right)
+    | ChFst pair ->                   Printf.sprintf "Fst(%s)" (string_of_ch_expr pair)
+    | ChSnd pair ->                   Printf.sprintf "Snd(%s)" (string_of_ch_expr pair)
+    | ChCall (func, arg) ->           Printf.sprintf "Call(%s,%s)" (string_of_ch_expr func) (string_of_ch_expr arg)
+    | ChTake (chan) ->                Printf.sprintf "Take(%s)" (string_of_ch_expr chan)
+    | ChNewCh ->                                     "NewCh"
+    | ChGive (target, value) ->       Printf.sprintf "Give(%s,%s)" (string_of_ch_expr target) (string_of_ch_expr value)
+    | ChFork expr ->                  Printf.sprintf "Fork(%s)" (string_of_ch_expr expr)
+    )
+    
+  and string_of_value value = 
+    ( match value with
+    | UnitVal                         ->                "()"
+    | IntVal (i)                      -> Printf.sprintf "%d" i
+    )
 end
 
 (** The module type for interpreters *)
 module type INTERPRETER = sig
-  module M: MONAD
+  include UNSPEC
 
-  type int_t
-  type string_t
-
-  type lit_t =
-  | UnitVal
-  | IntVal of int_t
-  and expr_ch_t =
-  | ChVar of name_t
-  | ChTake of expr_ch_t
-  | ChSub of (expr_ch_t * expr_ch_t)
-  | ChSnd of expr_ch_t
-  | ChSeq of (expr_ch_t * expr_ch_t)
-  | ChRight of expr_ch_t
-  | ChRet of lit_t
-  | ChRecFunc of (name_t * name_t * expr_ch_t)
-  | ChPair of (expr_ch_t * expr_ch_t)
-  | ChNewCh
-  | ChNeg of expr_ch_t
-  | ChMul of (expr_ch_t * expr_ch_t)
-  | ChMatch of (expr_ch_t * expr_ch_t * expr_ch_t)
-  | ChLet of (name_t * expr_ch_t * expr_ch_t)
-  | ChLeft of expr_ch_t
-  | ChGive of (expr_ch_t * expr_ch_t)
-  | ChFunc of (name_t * expr_ch_t)
-  | ChFst of expr_ch_t
-  | ChFork of expr_ch_t
-  | ChDiv of (expr_ch_t * expr_ch_t)
-  | ChCall of (expr_ch_t * expr_ch_t)
-  | ChAdd of (expr_ch_t * expr_ch_t)
-  and expr_act_t =
-  | ActVar of name_t
-  | ActSub of (expr_act_t * expr_act_t)
-  | ActSpawn of expr_act_t
-  | ActSnd of expr_act_t
-  | ActSeq of (expr_act_t * expr_act_t)
-  | ActSend of (expr_act_t * expr_act_t)
-  | ActSelf
-  | ActRight of expr_act_t
-  | ActRet of lit_t
-  | ActReceive
-  | ActRecFunc of (name_t * name_t * expr_act_t)
-  | ActPair of (expr_act_t * expr_act_t)
-  | ActNeg of expr_act_t
-  | ActMul of (expr_act_t * expr_act_t)
-  | ActMatch of (expr_act_t * expr_act_t * expr_act_t)
-  | ActLet of (name_t * expr_act_t * expr_act_t)
-  | ActLeft of expr_act_t
-  | ActFunc of (name_t * expr_act_t)
-  | ActFst of expr_act_t
-  | ActDiv of (expr_act_t * expr_act_t)
-  | ActCall of (expr_act_t * expr_act_t)
-  | ActAdd of (expr_act_t * expr_act_t)
-  and chan_t = string_t
-  and name_t = string_t
-
-  val string_unique_id: unit -> string_t M.t
   val translate: expr_act_t * chan_t -> expr_ch_t M.t
   val translate_add: expr_act_t * chan_t -> expr_ch_t M.t
   val translate_call: expr_act_t * chan_t -> expr_ch_t M.t
@@ -464,4 +439,4 @@ module MakeInterpreter (F: UNSPEC) = struct
     end
 end
 
-module Interpreter = struct end
+module Interpreter = MakeInterpreter (Unspec)

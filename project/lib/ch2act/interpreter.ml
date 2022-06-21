@@ -127,80 +127,80 @@ module Unspec = struct
     Left (Ret (UnitVal))
 
   let list_concat (): expr_act_t =
-    (RecFunc ("concat", "args",
-      (Let ("xs'", (Fst (Var ("args"))),
-      (Let ("ys", (Snd (Var ("args"))),
-      (Match ((Var "xs'"),
-        (Func ("xs",
-          (Var "ys"))),
-        (Func ("xs",
-          (Let ("hd", (Fst (Var "xs")),
-          (Let ("tl", (Snd (Var "xs")),
+    (RecFunc ("__concat", "__args",
+      (Let ("__xs'", (Fst (Var ("__args"))),
+      (Let ("__ys", (Snd (Var ("__args"))),
+      (Match ((Var "__xs'"),
+        (Func ("__xs",
+          (Var "__ys"))),
+        (Func ("__xs",
+          (Let ("__hd", (Fst (Var "__xs")),
+          (Let ("__tl", (Snd (Var "__xs")),
           (Right (
             (Pair (
-              (Var "hd"),
+              (Var "__hd"),
               (Call (
-                (Var "concat"),
-                (Pair ((Var "tl"),(Var "ys")))))))))))))))))))))))
+                (Var "__concat"),
+                (Pair ((Var "__tl"),(Var "__ys")))))))))))))))))))))))
 
   let drain (): expr_act_t =
     (Func (
-      "x",
-      (Let ("vals", (Fst (Var "x")),
-      (Let ("pids", (Snd (Var "x")),
+      "__x",
+      (Let ("__vals", (Fst (Var "__x")),
+      (Let ("__pids", (Snd (Var "__x")),
       (Match (
-        (Var "vals"),
+        (Var "__vals"),
         (Func (
-          "vv",
-          (Pair ((Var "vals"), (Var "pids"))))),
+          "__vv",
+          (Pair ((Var "__vals"), (Var "__pids"))))),
         (Func (
-          "vv",
-          (Let ("v", (Fst (Var "vv")),
-          (Let ("vs", (Snd (Var "vv")),
+          "__vv",
+          (Let ("__v", (Fst (Var "__vv")),
+          (Let ("__vs", (Snd (Var "__vv")),
           (Match (
-            (Var "pids"),
+            (Var "__pids"),
             (Func (
-              "pp",
-              (Pair ((Var "vals"), (Var "pids"))))),
+              "__pp",
+              (Pair ((Var "__vals"), (Var "__pids"))))),
             (Func (
-              "pp",
-              (Let ("p", (Fst (Var "pp")),
-              (Let ("ps", (Snd (Var "pp")),
+              "__pp",
+              (Let ("__p", (Fst (Var "__pp")),
+              (Let ("__ps", (Snd (Var "__pp")),
               (Seq (
                 (Send (
-                  (Var "v"),
-                  (Var "pid"))),
+                  (Var "__v"),
+                  (Var "__pid"))),
                 (Pair (
-                  (Var "vs"),
-                  (Var "pids")))))))))))))))))))))))))))
+                  (Var "__vs"),
+                  (Var "__pids")))))))))))))))))))))))))))
                   
 
   let body (): expr_act_t M.t =
     M.ret (RecFunc (
-      "this_func",
-      "state",
-      (Let ("in_val", (Receive),
-      (Let ("vals", (Fst (Var "state")),
-      (Let ("pids", (Snd (Var "state")),
-      (Match ((Var "in_val"),
-        (Func ("val",
-          (Let ("vals'", (Call (
+      "__this_func",
+      "__state",
+      (Let ("__in_val", (Receive),
+      (Let ("__vals", (Fst (Var "__state")),
+      (Let ("__pids", (Snd (Var "__state")),
+      (Match ((Var "__in_val"),
+        (Func ("__val",
+          (Let ("__vals'", (Call (
               list_concat (),
-              (Pair ((Var "vals"), (Var "val"))))),
-          (Let ("state'", (Call (
+              (Pair ((Var "__vals"), (Var "__val"))))),
+          (Let ("__state'", (Call (
               drain (),
-              (Pair ((Var "vals'"), (Var "pids"))))),
-          (Call ((Var "this_func"), (Var "state'"))))))))),
-        (Func ("pid",
-          (Let ("pids'",
+              (Pair ((Var "__vals'"), (Var "__pids"))))),
+          (Call ((Var "__this_func"), (Var "__state'"))))))))),
+        (Func ("__pid",
+          (Let ("__pids'",
           (Call (
               list_concat (),
-              (Pair ((Var "pids"), (Var "pid"))))),
-          (Let ("state'",
+              (Pair ((Var "__pids"), (Var "__pid"))))),
+          (Let ("__state'",
             (Call (
               drain (),
-              (Pair ((Var "vals"), (Var "pids'"))))),
-          (Call ((Var "this_func"), (Var "state'")))))))))))))))))))
+              (Pair ((Var "__vals"), (Var "__pids'"))))),
+          (Call ((Var "__this_func"), (Var "__state'")))))))))))))))))))
 
 
   let next_id =
@@ -234,11 +234,11 @@ module Unspec = struct
     | Pair (left, right) ->         Printf.sprintf "Pain(%s, %s)" (string_of_act_expr left) (string_of_act_expr right)
     | Fst pair ->                   Printf.sprintf "Fst(%s)" (string_of_act_expr pair)
     | Snd pair ->                   Printf.sprintf "Snd(%s)" (string_of_act_expr pair)
-    | Self ->                                      "Self"
-    | Spawn expr ->                 Printf.sprintf "Spawn(%s)" (string_of_act_expr expr)
     | Call (func, arg) ->           Printf.sprintf "Call(%s,%s)" (string_of_act_expr func) (string_of_act_expr arg)
-    | Send (value, target) ->       Printf.sprintf "Send(%s,%s)" (string_of_act_expr value) (string_of_act_expr target)
+    | Self ->                                      "Self"
     | Receive ->                                   "Receive"
+    | Send (value, target) ->       Printf.sprintf "Send(%s,%s)" (string_of_act_expr value) (string_of_act_expr target)
+    | Spawn expr ->                 Printf.sprintf "Spawn(%s)" (string_of_act_expr expr)
     )
     
   and string_of_value value = 
