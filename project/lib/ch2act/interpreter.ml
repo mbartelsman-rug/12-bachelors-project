@@ -1,6 +1,5 @@
 (** All types, and the unspecified terms *)
-module type UNSPEC = sig
-  module M: Common.Monads.MONAD
+module type TYPES = sig
 
   type int_t
   and string_t
@@ -8,30 +7,30 @@ module type UNSPEC = sig
   | UnitVal
   | IntVal of int_t
   and expr_ch_t =
-  | Var of name_t
+  | Var of string_t
   | Take of expr_ch_t
   | Sub of (expr_ch_t * expr_ch_t)
   | Snd of expr_ch_t
   | Seq of (expr_ch_t * expr_ch_t)
   | Right of expr_ch_t
   | Ret of lit_t
-  | RecFunc of (name_t * name_t * expr_ch_t)
+  | RecFunc of (string_t * string_t * expr_ch_t)
   | Pair of (expr_ch_t * expr_ch_t)
   | NewCh
   | Neg of expr_ch_t
   | Mul of (expr_ch_t * expr_ch_t)
   | Match of (expr_ch_t * expr_ch_t * expr_ch_t)
-  | Let of (name_t * expr_ch_t * expr_ch_t)
+  | Let of (string_t * expr_ch_t * expr_ch_t)
   | Left of expr_ch_t
   | Give of (expr_ch_t * expr_ch_t)
-  | Func of (name_t * expr_ch_t)
+  | Func of (string_t * expr_ch_t)
   | Fst of expr_ch_t
   | Fork of expr_ch_t
   | Div of (expr_ch_t * expr_ch_t)
   | Call of (expr_ch_t * expr_ch_t)
   | Add of (expr_ch_t * expr_ch_t)
   and expr_act_t =
-  | Var of name_t
+  | Var of string_t
   | Sub of (expr_act_t * expr_act_t)
   | Spawn of expr_act_t
   | Snd of expr_act_t
@@ -41,33 +40,24 @@ module type UNSPEC = sig
   | Right of expr_act_t
   | Ret of lit_t
   | Receive
-  | RecFunc of (name_t * name_t * expr_act_t)
+  | RecFunc of (string_t * string_t * expr_act_t)
   | Pair of (expr_act_t * expr_act_t)
   | Neg of expr_act_t
   | Mul of (expr_act_t * expr_act_t)
   | Match of (expr_act_t * expr_act_t * expr_act_t)
-  | Let of (name_t * expr_act_t * expr_act_t)
+  | Let of (string_t * expr_act_t * expr_act_t)
   | Left of expr_act_t
-  | Func of (name_t * expr_act_t)
+  | Func of (string_t * expr_act_t)
   | Fst of expr_act_t
   | Div of (expr_act_t * expr_act_t)
   | Call of (expr_act_t * expr_act_t)
   | Add of (expr_act_t * expr_act_t)
-  and chan_t = string_t
-  and name_t = string_t
-
-  val body: unit -> expr_act_t M.t
-  val string_unique_id: unit -> string_t M.t
   val make_name: string -> string_t
   val make_int: int -> lit_t
-  val string_of_act_expr: expr_act_t -> string
-  val string_of_value: lit_t -> string
 end
 
-(** A default instantiation *)
-module Unspec = struct
+module Types = struct
   open Base
-  module M = Common.Monads.Identity
 
   type int_t = Int.t
   and string_t = String.t
@@ -75,7 +65,7 @@ module Unspec = struct
   | UnitVal
   | IntVal of int_t
   and expr_act_t =
-  | Var of name_t
+  | Var of string_t
   | Sub of (expr_act_t * expr_act_t)
   | Spawn of expr_act_t
   | Snd of expr_act_t
@@ -85,43 +75,68 @@ module Unspec = struct
   | Right of expr_act_t
   | Ret of lit_t
   | Receive
-  | RecFunc of (name_t * name_t * expr_act_t)
+  | RecFunc of (string_t * string_t * expr_act_t)
   | Pair of (expr_act_t * expr_act_t)
   | Neg of expr_act_t
   | Mul of (expr_act_t * expr_act_t)
   | Match of (expr_act_t * expr_act_t * expr_act_t)
-  | Let of (name_t * expr_act_t * expr_act_t)
+  | Let of (string_t * expr_act_t * expr_act_t)
   | Left of expr_act_t
-  | Func of (name_t * expr_act_t)
+  | Func of (string_t * expr_act_t)
   | Fst of expr_act_t
   | Div of (expr_act_t * expr_act_t)
   | Call of (expr_act_t * expr_act_t)
   | Add of (expr_act_t * expr_act_t)
+  [@@deriving sexp]
   and expr_ch_t =
-  | Var of name_t
+  | Var of string_t
   | Take of expr_ch_t
   | Sub of (expr_ch_t * expr_ch_t)
   | Snd of expr_ch_t
   | Seq of (expr_ch_t * expr_ch_t)
   | Right of expr_ch_t
   | Ret of lit_t
-  | RecFunc of (name_t * name_t * expr_ch_t)
+  | RecFunc of (string_t * string_t * expr_ch_t)
   | Pair of (expr_ch_t * expr_ch_t)
   | NewCh
   | Neg of expr_ch_t
   | Mul of (expr_ch_t * expr_ch_t)
   | Match of (expr_ch_t * expr_ch_t * expr_ch_t)
-  | Let of (name_t * expr_ch_t * expr_ch_t)
+  | Let of (string_t * expr_ch_t * expr_ch_t)
   | Left of expr_ch_t
   | Give of (expr_ch_t * expr_ch_t)
-  | Func of (name_t * expr_ch_t)
+  | Func of (string_t * expr_ch_t)
   | Fst of expr_ch_t
   | Fork of expr_ch_t
   | Div of (expr_ch_t * expr_ch_t)
   | Call of (expr_ch_t * expr_ch_t)
   | Add of (expr_ch_t * expr_ch_t)
-  and chan_t = string_t
-  and name_t = string_t
+  [@@deriving sexp]
+
+  let make_name s = s
+  let make_int i = IntVal i
+end
+
+module type UNSPEC = sig
+  include TYPES
+  module M: Common.Monads.MONAD
+
+  val body: unit -> expr_act_t M.t
+  val string_unique_id: unit -> string_t M.t
+  val string_of_expr_ch: expr_ch_t -> string
+  val string_of_expr_act: expr_act_t -> string
+  val expr_ch_of_string: string -> expr_ch_t
+  val expr_act_of_string: string -> expr_act_t
+  val string_of_value: lit_t -> string
+  val value_of_string: string -> lit_t
+end
+
+(** A default instantiation *)
+module Unspec = struct
+  open Base
+  include Types
+  module M = Common.Monads.Identity
+
 
   let list_empty (): expr_act_t =
     Left (Ret (UnitVal))
@@ -176,31 +191,33 @@ module Unspec = struct
                   
 
   let body (): expr_act_t M.t =
-    M.ret (RecFunc (
-      "__this_func",
-      "__state",
-      (Let ("__in_val", (Receive),
-      (Let ("__vals", (Fst (Var "__state")),
-      (Let ("__pids", (Snd (Var "__state")),
-      (Match ((Var "__in_val"),
-        (Func ("__val",
-          (Let ("__vals'", (Call (
-              list_concat (),
-              (Pair ((Var "__vals"), (Var "__val"))))),
-          (Let ("__state'", (Call (
-              drain (),
-              (Pair ((Var "__vals'"), (Var "__pids"))))),
-          (Call ((Var "__this_func"), (Var "__state'"))))))))),
-        (Func ("__pid",
-          (Let ("__pids'",
-          (Call (
-              list_concat (),
-              (Pair ((Var "__pids"), (Var "__pid"))))),
-          (Let ("__state'",
+    let expr: expr_act_t =
+      RecFunc (
+        "__this_func",
+        "__state",
+        (Let ("__in_val", (Receive),
+        (Let ("__vals", (Fst (Var "__state")),
+        (Let ("__pids", (Snd (Var "__state")),
+        (Match ((Var "__in_val"),
+          (Func ("__val",
+            (Let ("__vals'", (Call (
+                list_concat (),
+                (Pair ((Var "__vals"), (Var "__val"))))),
+            (Let ("__state'", (Call (
+                drain (),
+                (Pair ((Var "__vals'"), (Var "__pids"))))),
+            (Call ((Var "__this_func"), (Var "__state'"))))))))),
+          (Func ("__pid",
+            (Let ("__pids'",
             (Call (
-              drain (),
-              (Pair ((Var "__vals"), (Var "__pids'"))))),
-          (Call ((Var "__this_func"), (Var "__state'")))))))))))))))))))
+                list_concat (),
+                (Pair ((Var "__pids"), (Var "__pid"))))),
+            (Let ("__state'",
+              (Call (
+                drain (),
+                (Pair ((Var "__vals"), (Var "__pids'"))))),
+            (Call ((Var "__this_func"), (Var "__state'")))))))))))))))))) in
+    M.ret expr
 
 
   let next_id =
@@ -212,40 +229,12 @@ module Unspec = struct
     Printf.sprintf "[%d]" id
     |> M.ret
 
-  let make_name s = s
-  let make_int i = IntVal i
-  
-  let rec string_of_act_expr expr =
-    ( match expr with
-    | Ret value ->                  Printf.sprintf "Ret(%s)" (string_of_value value)
-    | Var name ->                   Printf.sprintf "Var(\"%s\")" name
-    | Func (name, body) ->          Printf.sprintf "Func(\"%s\",%s)" name (string_of_act_expr body)
-    | RecFunc (func, arg, body) ->  Printf.sprintf "RecFunc(\"%s\",\"%s\",%s)" func arg (string_of_act_expr body)
-    | Let (name, value, body) ->    Printf.sprintf "Let(\"%s\",%s,%s)" name (string_of_act_expr value) (string_of_act_expr body)
-    | Seq (left, right) ->          Printf.sprintf "Seq(%s,%s)" (string_of_act_expr left) (string_of_act_expr right)
-    | Neg (num) ->                  Printf.sprintf "Neg(%s)" (string_of_act_expr num)
-    | Add (left, right) ->          Printf.sprintf "Add(%s,%s)" (string_of_act_expr left) (string_of_act_expr right)
-    | Sub (left, right) ->          Printf.sprintf "Sub(%s,%s)" (string_of_act_expr left) (string_of_act_expr right)
-    | Mul (left, right) ->          Printf.sprintf "Mul(%s,%s)" (string_of_act_expr left) (string_of_act_expr right)
-    | Div (left, right) ->          Printf.sprintf "Div(%s,%s)" (string_of_act_expr left) (string_of_act_expr right)
-    | Left either ->                Printf.sprintf "Left(%s)" (string_of_act_expr either)
-    | Right either ->               Printf.sprintf "Right(%s)" (string_of_act_expr either)
-    | Match (guard, left, right) -> Printf.sprintf "Match(%s,%s,%s)" (string_of_act_expr guard) (string_of_act_expr left) (string_of_act_expr right)
-    | Pair (left, right) ->         Printf.sprintf "Pain(%s, %s)" (string_of_act_expr left) (string_of_act_expr right)
-    | Fst pair ->                   Printf.sprintf "Fst(%s)" (string_of_act_expr pair)
-    | Snd pair ->                   Printf.sprintf "Snd(%s)" (string_of_act_expr pair)
-    | Call (func, arg) ->           Printf.sprintf "Call(%s,%s)" (string_of_act_expr func) (string_of_act_expr arg)
-    | Self ->                                      "Self"
-    | Receive ->                                   "Receive"
-    | Send (value, target) ->       Printf.sprintf "Send(%s,%s)" (string_of_act_expr value) (string_of_act_expr target)
-    | Spawn expr ->                 Printf.sprintf "Spawn(%s)" (string_of_act_expr expr)
-    )
-    
-  and string_of_value value = 
-    ( match value with
-    | UnitVal                         ->                "()"
-    | IntVal (i)                      -> Printf.sprintf "%d" i
-    )
+  let string_of_expr_ch expr = sexp_of_expr_ch_t expr |> Common.Utilities.string_of_sexp
+  let expr_ch_of_string strn = Core.Sexp.of_string strn |> expr_ch_t_of_sexp
+  let string_of_expr_act expr = sexp_of_expr_act_t expr |> Common.Utilities.string_of_sexp
+  let expr_act_of_string strn = Core.Sexp.of_string strn |> expr_act_t_of_sexp
+  let string_of_value value = sexp_of_lit_t value |> Common.Utilities.string_of_sexp
+  let value_of_string strn = Core.Sexp.of_string strn |> lit_t_of_sexp
 
 end
 

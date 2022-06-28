@@ -68,3 +68,17 @@ let evaluate ?(print = false) expr =
     let results = [] in
     evaluate' env' results print
   ) |> M.extract
+
+let parse (strn: string): expr_t =
+  expr_of_string strn
+
+let serialize (expr: expr_t): string =
+  string_of_expr expr
+
+
+let run (program: string): string =
+  parse program
+  |> evaluate
+  |> Base.List.map ~f:(serialize)
+  |> Base.String.concat ~sep:("\n||")
+  

@@ -10,25 +10,25 @@ module type TYPES = sig
   | IntVal of int_t
   | FuncVal of func_t
   | EitherVal of either_t
-  | ChanIdVal of chan_id_t
+  | ChanIdVal of string_t
   and expr_t =
-  | Var of name_t
+  | Var of string_t
   | Take of expr_t
   | Sub of (expr_t * expr_t)
   | Snd of expr_t
   | Seq of (expr_t * expr_t)
   | Right of expr_t
   | Ret of value_t
-  | RecFunc of (name_t * name_t * expr_t)
+  | RecFunc of (string_t * string_t * expr_t)
   | Pair of (expr_t * expr_t)
   | NewCh
   | Neg of expr_t
   | Mul of (expr_t * expr_t)
   | Match of (expr_t * expr_t * expr_t)
-  | Let of (name_t * expr_t * expr_t)
+  | Let of (string_t * expr_t * expr_t)
   | Left of expr_t
   | Give of (expr_t * expr_t)
-  | Func of (name_t * expr_t)
+  | Func of (string_t * expr_t)
   | Fst of expr_t
   | Fork of expr_t
   | Div of (expr_t * expr_t)
@@ -42,11 +42,9 @@ module type TYPES = sig
   | False
   and chan_buff_t = value_t queue_t
   and chan_env_t = (value_t queue_t) dict_t
-  and chan_id_t = string_t
   and env_t = expr_t queue_t * (value_t queue_t) dict_t * value_t dict_t
   and func_env_t = value_t dict_t
   and func_t = string_t * expr_t
-  and name_t = string_t
   and pair_t = value_t * value_t
   and rec_func_t = string_t * string_t * expr_t
   and thread_pool_t = expr_t queue_t
@@ -54,9 +52,7 @@ module type TYPES = sig
   val make_env: unit -> env_t
   val make_int: int -> value_t
   val make_bool: bool -> bool_t
-  val make_name: string -> name_t
-  val string_of_expr: expr_t -> string
-  val string_of_value: value_t -> string
+  val make_name: string -> string_t
 end
 
 module Types = struct
@@ -73,30 +69,31 @@ module Types = struct
   | IntVal of int_t
   | FuncVal of func_t
   | EitherVal of either_t
-  | ChanIdVal of chan_id_t
+  | ChanIdVal of string_t
   and expr_t =
-  | Var of name_t
+  | Var of string_t
   | Take of expr_t
   | Sub of (expr_t * expr_t)
   | Snd of expr_t
   | Seq of (expr_t * expr_t)
   | Right of expr_t
   | Ret of value_t
-  | RecFunc of (name_t * name_t * expr_t)
+  | RecFunc of (string_t * string_t * expr_t)
   | Pair of (expr_t * expr_t)
   | NewCh
   | Neg of expr_t
   | Mul of (expr_t * expr_t)
   | Match of (expr_t * expr_t * expr_t)
-  | Let of (name_t * expr_t * expr_t)
+  | Let of (string_t * expr_t * expr_t)
   | Left of expr_t
   | Give of (expr_t * expr_t)
-  | Func of (name_t * expr_t)
+  | Func of (string_t * expr_t)
   | Fst of expr_t
   | Fork of expr_t
   | Div of (expr_t * expr_t)
   | Call of (expr_t * expr_t)
   | Add of (expr_t * expr_t)
+  [@@deriving sexp]
   and either_t =
   | RightVal of value_t
   | LeftVal of value_t
@@ -105,11 +102,9 @@ module Types = struct
   | False
   and chan_buff_t = value_t queue_t
   and chan_env_t = (value_t queue_t) dict_t
-  and chan_id_t = string_t
   and env_t = expr_t queue_t * (value_t queue_t) dict_t * value_t dict_t
   and func_env_t = value_t dict_t
   and func_t = string_t * expr_t
-  and name_t = string_t
   and pair_t = value_t * value_t
   and rec_func_t = string_t * string_t * expr_t
   and thread_pool_t = expr_t queue_t
@@ -128,44 +123,6 @@ module Types = struct
     let chenv = Map.empty (module String) in
     let fenv = Map.empty (module String) in
     (pool, chenv, fenv)
-    
-  let rec string_of_expr expr =
-    ( match expr with
-    | Ret value ->                  Printf.sprintf "Ret(%s)" (string_of_value value)
-    | Var name ->                   Printf.sprintf "Var(%s)" name
-    | Func (name, body) ->          Printf.sprintf "Func(%s,%s)" name (string_of_expr body)
-    | RecFunc (func, arg, body) ->  Printf.sprintf "RecFunc(%s,%s,%s)" func arg (string_of_expr body)
-    | Let (name, value, body) ->    Printf.sprintf "Let(%s,%s,%s)" name (string_of_expr value) (string_of_expr body)
-    | Seq (left, right) ->          Printf.sprintf "Seq(%s,%s)" (string_of_expr left) (string_of_expr right)
-    | Neg (num) ->                  Printf.sprintf "Neg(%s)" (string_of_expr num)
-    | Add (left, right) ->          Printf.sprintf "Add(%s,%s)" (string_of_expr left) (string_of_expr right)
-    | Sub (left, right) ->          Printf.sprintf "Sub(%s,%s)" (string_of_expr left) (string_of_expr right)
-    | Mul (left, right) ->          Printf.sprintf "Mul(%s,%s)" (string_of_expr left) (string_of_expr right)
-    | Div (left, right) ->          Printf.sprintf "Div(%s,%s)" (string_of_expr left) (string_of_expr right)
-    | Left either ->                Printf.sprintf "Left(%s)" (string_of_expr either)
-    | Right either ->               Printf.sprintf "Right(%s)" (string_of_expr either)
-    | Match (guard, left, right) -> Printf.sprintf "Match(%s,%s,%s)" (string_of_expr guard) (string_of_expr left) (string_of_expr right)
-    | Pair (left, right) ->         Printf.sprintf "Pain(%s, %s)" (string_of_expr left) (string_of_expr right)
-    | Fst pair ->                   Printf.sprintf "Fst(%s)" (string_of_expr pair)
-    | Snd pair ->                   Printf.sprintf "Snd(%s)" (string_of_expr pair)
-    | NewCh ->                                     "NewCh"
-    | Fork expr ->                  Printf.sprintf "Fork(%s)" (string_of_expr expr)
-    | Call (func, arg) ->           Printf.sprintf "Call(%s,%s)" (string_of_expr func) (string_of_expr arg)
-    | Give (chan, value) ->         Printf.sprintf "Give(%s,%s)" (string_of_expr chan) (string_of_expr value)
-    | Take chan ->                  Printf.sprintf "Take(%s)" (string_of_expr chan)
-    )
-    
-  and string_of_value value = 
-    ( match value with
-    | UnitVal                         ->                "()"
-    | RecFuncVal (func, arg, body)    -> Printf.sprintf "<fun %s:(%s) -> (%s)>" func arg (string_of_expr body)
-    | PairVal (l, r)                  -> Printf.sprintf "<(%s, %s)>" (string_of_value l) (string_of_value r)
-    | IntVal (i)                      -> Printf.sprintf "<%d>" i
-    | FuncVal (arg, body)             -> Printf.sprintf "<fun (%s) -> (%s)>" arg (string_of_expr body)
-    | EitherVal (LeftVal v)           -> Printf.sprintf "<Left(%s)>" (string_of_value v)
-    | EitherVal (RightVal v)          -> Printf.sprintf "<Right(%s)>" (string_of_value v)
-    | ChanIdVal (chan)                -> Printf.sprintf "<CH:%s>" chan
-    )
 
 end
 
@@ -192,6 +149,10 @@ module type UNSPEC = sig
   val string_eq: string_t * string_t -> bool_t M.t
   val string_unique_id: unit -> string_t M.t
   val expr_throw_trace: env_t * expr_t -> (env_t * expr_t) M.t
+  val string_of_expr: expr_t -> string
+  val expr_of_string: string -> expr_t
+  val string_of_value: value_t -> string
+  val value_of_string: string -> value_t
 end
 
 (** A default instantiation *)
@@ -201,6 +162,11 @@ module Unspec = struct
   module M = Common.Monads.Identity
 
   exception TraceFail of string
+    
+  let string_of_expr expr = sexp_of_expr_t expr |> Common.Utilities.string_of_sexp
+  let expr_of_string strn = Core.Sexp.of_string strn |> expr_t_of_sexp
+  let string_of_value value = sexp_of_value_t value |> Common.Utilities.string_of_sexp
+  let value_of_string strn = Core.Sexp.of_string strn |> value_t_of_sexp
 
   let int_neg (num) =
     (-num)

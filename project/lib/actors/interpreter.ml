@@ -6,13 +6,13 @@ module type TYPES = sig
   and value_t =
   | UnitVal
   | RecFuncVal of rec_func_t
-  | PidVal of pid_t
+  | PidVal of string_t
   | PairVal of pair_t
   | IntVal of int_t
   | FuncVal of func_t
   | EitherVal of either_t
   and expr_t =
-  | Var of name_t
+  | Var of string_t
   | Sub of (expr_t * expr_t)
   | Spawn of expr_t
   | Snd of expr_t
@@ -22,14 +22,14 @@ module type TYPES = sig
   | Right of expr_t
   | Ret of value_t
   | Receive
-  | RecFunc of (name_t * name_t * expr_t)
+  | RecFunc of (string_t * string_t * expr_t)
   | Pair of (expr_t * expr_t)
   | Neg of expr_t
   | Mul of (expr_t * expr_t)
   | Match of (expr_t * expr_t * expr_t)
-  | Let of (name_t * expr_t * expr_t)
+  | Let of (string_t * expr_t * expr_t)
   | Left of expr_t
-  | Func of (name_t * expr_t)
+  | Func of (string_t * expr_t)
   | Fst of expr_t
   | Div of (expr_t * expr_t)
   | Call of (expr_t * expr_t)
@@ -45,18 +45,14 @@ module type TYPES = sig
   and func_env_t = value_t dict_t
   and func_t = string_t * expr_t
   and inbox_t = value_t queue_t
-  and name_t = string_t
   and pair_t = value_t * value_t
-  and pid_t = string_t
   and rec_func_t = string_t * string_t * expr_t
   and thread_pool_t = (string_t * expr_t) queue_t
 
   val make_env: unit -> env_t
   val make_int: int -> value_t
   val make_bool: bool -> bool_t
-  val make_name: string -> name_t
-  val string_of_expr: expr_t -> string
-  val string_of_value: value_t -> string
+  val make_name: string -> string_t
 end
 
 module Types = struct
@@ -69,13 +65,13 @@ module Types = struct
   and value_t =
   | UnitVal
   | RecFuncVal of rec_func_t
-  | PidVal of pid_t
+  | PidVal of string_t
   | PairVal of pair_t
   | IntVal of int_t
   | FuncVal of func_t
   | EitherVal of either_t
   and expr_t =
-  | Var of name_t
+  | Var of string_t
   | Sub of (expr_t * expr_t)
   | Spawn of expr_t
   | Snd of expr_t
@@ -85,18 +81,19 @@ module Types = struct
   | Right of expr_t
   | Ret of value_t
   | Receive
-  | RecFunc of (name_t * name_t * expr_t)
+  | RecFunc of (string_t * string_t * expr_t)
   | Pair of (expr_t * expr_t)
   | Neg of expr_t
   | Mul of (expr_t * expr_t)
   | Match of (expr_t * expr_t * expr_t)
-  | Let of (name_t * expr_t * expr_t)
+  | Let of (string_t * expr_t * expr_t)
   | Left of expr_t
-  | Func of (name_t * expr_t)
+  | Func of (string_t * expr_t)
   | Fst of expr_t
   | Div of (expr_t * expr_t)
   | Call of (expr_t * expr_t)
   | Add of (expr_t * expr_t)
+  [@@deriving sexp]
   and either_t =
   | RightVal of value_t
   | LeftVal of value_t
@@ -108,9 +105,7 @@ module Types = struct
   and func_env_t = value_t dict_t
   and func_t = string_t * expr_t
   and inbox_t = value_t queue_t
-  and name_t = string_t
   and pair_t = value_t * value_t
-  and pid_t = string_t
   and rec_func_t = string_t * string_t * expr_t
   and thread_pool_t = (string_t * expr_t) queue_t
 
@@ -129,44 +124,6 @@ module Types = struct
     let chenv = Map.empty (module String) in
     let fenv = Map.empty (module String) in
     (pid, pool, chenv, fenv)
-    
-  let rec string_of_expr expr =
-    ( match expr with
-    | Ret value ->                  Printf.sprintf "Ret(%s)" (string_of_value value)
-    | Var name ->                   Printf.sprintf "Var(%s)" name
-    | Func (name, body) ->          Printf.sprintf "Func(%s,%s)" name (string_of_expr body)
-    | RecFunc (func, arg, body) ->  Printf.sprintf "RecFunc(%s,%s,%s)" func arg (string_of_expr body)
-    | Let (name, value, body) ->    Printf.sprintf "Let(%s,%s,%s)" name (string_of_expr value) (string_of_expr body)
-    | Seq (left, right) ->          Printf.sprintf "Seq(%s,%s)" (string_of_expr left) (string_of_expr right)
-    | Neg (num) ->                  Printf.sprintf "Neg(%s)" (string_of_expr num)
-    | Add (left, right) ->          Printf.sprintf "Add(%s,%s)" (string_of_expr left) (string_of_expr right)
-    | Sub (left, right) ->          Printf.sprintf "Sub(%s,%s)" (string_of_expr left) (string_of_expr right)
-    | Mul (left, right) ->          Printf.sprintf "Mul(%s,%s)" (string_of_expr left) (string_of_expr right)
-    | Div (left, right) ->          Printf.sprintf "Div(%s,%s)" (string_of_expr left) (string_of_expr right)
-    | Left either ->                Printf.sprintf "Left(%s)" (string_of_expr either)
-    | Right either ->               Printf.sprintf "Right(%s)" (string_of_expr either)
-    | Match (guard, left, right) -> Printf.sprintf "Match(%s,%s,%s)" (string_of_expr guard) (string_of_expr left) (string_of_expr right)
-    | Pair (left, right) ->         Printf.sprintf "Pain(%s, %s)" (string_of_expr left) (string_of_expr right)
-    | Fst pair ->                   Printf.sprintf "Fst(%s)" (string_of_expr pair)
-    | Snd pair ->                   Printf.sprintf "Snd(%s)" (string_of_expr pair)
-    | Self ->                                      "Self"
-    | Spawn expr ->                 Printf.sprintf "Spawn(%s)" (string_of_expr expr)
-    | Call (func, arg) ->           Printf.sprintf "Call(%s,%s)" (string_of_expr func) (string_of_expr arg)
-    | Send (value, target) ->       Printf.sprintf "Send(%s,%s)" (string_of_expr value) (string_of_expr target)
-    | Receive ->                                   "Receive"
-    )
-    
-  and string_of_value value = 
-    ( match value with
-    | UnitVal                         ->                "()"
-    | RecFuncVal (func, arg, body)    -> Printf.sprintf "<fun %s:(%s) -> (%s)>" func arg (string_of_expr body)
-    | PairVal (l, r)                  -> Printf.sprintf "<(%s, %s)>" (string_of_value l) (string_of_value r)
-    | IntVal (i)                      -> Printf.sprintf "<%d>" i
-    | FuncVal (arg, body)             -> Printf.sprintf "<fun (%s) -> (%s)>" arg (string_of_expr body)
-    | EitherVal (LeftVal v)           -> Printf.sprintf "<Left(%s)>" (string_of_value v)
-    | EitherVal (RightVal v)          -> Printf.sprintf "<Right(%s)>" (string_of_value v)
-    | PidVal (chan)                   -> Printf.sprintf "<PID:%s>" chan
-    )
 
 end
 
@@ -193,6 +150,10 @@ module type UNSPEC = sig
   val queue_new: unit -> ('v queue_t) M.t
   val string_eq: string_t * string_t -> bool_t M.t
   val string_unique_id: unit -> string_t M.t
+  val string_of_expr: expr_t -> string
+  val expr_of_string: string -> expr_t
+  val string_of_value: value_t -> string
+  val value_of_string: string -> value_t
 end
 
 (** A default instantiation *)
@@ -202,6 +163,11 @@ module Unspec = struct
   module M = Common.Monads.Identity
 
   exception TraceFail of string
+    
+  let string_of_expr expr = sexp_of_expr_t expr |> Common.Utilities.string_of_sexp
+  let expr_of_string strn = Core.Sexp.of_string strn |> expr_t_of_sexp
+  let string_of_value value = sexp_of_value_t value |> Common.Utilities.string_of_sexp
+  let value_of_string strn = Core.Sexp.of_string strn |> value_t_of_sexp
 
   let int_neg (num) =
     (-num)
@@ -298,13 +264,13 @@ module type INTERPRETER = sig
   type value_t =
   | UnitVal
   | RecFuncVal of rec_func_t
-  | PidVal of pid_t
+  | PidVal of string_t
   | PairVal of pair_t
   | IntVal of int_t
   | FuncVal of func_t
   | EitherVal of either_t
   and expr_t =
-  | Var of name_t
+  | Var of string_t
   | Sub of (expr_t * expr_t)
   | Spawn of expr_t
   | Snd of expr_t
@@ -314,14 +280,14 @@ module type INTERPRETER = sig
   | Right of expr_t
   | Ret of value_t
   | Receive
-  | RecFunc of (name_t * name_t * expr_t)
+  | RecFunc of (string_t * string_t * expr_t)
   | Pair of (expr_t * expr_t)
   | Neg of expr_t
   | Mul of (expr_t * expr_t)
   | Match of (expr_t * expr_t * expr_t)
-  | Let of (name_t * expr_t * expr_t)
+  | Let of (string_t * expr_t * expr_t)
   | Left of expr_t
-  | Func of (name_t * expr_t)
+  | Func of (string_t * expr_t)
   | Fst of expr_t
   | Div of (expr_t * expr_t)
   | Call of (expr_t * expr_t)
@@ -337,16 +303,14 @@ module type INTERPRETER = sig
   and func_env_t = value_t dict_t
   and func_t = string_t * expr_t
   and inbox_t = value_t queue_t
-  and name_t = string_t
   and pair_t = value_t * value_t
-  and pid_t = string_t
   and rec_func_t = string_t * string_t * expr_t
   and thread_pool_t = (string_t * expr_t) queue_t
 
-  val actor_receive: env_t * pid_t -> (env_t * value_t) M.t
-  val actor_self: env_t -> pid_t M.t
-  val actor_send: env_t * pid_t * value_t -> env_t M.t
-  val actor_spawn: env_t * expr_t -> (env_t * pid_t) M.t
+  val actor_receive: env_t * string_t -> (env_t * value_t) M.t
+  val actor_self: env_t -> string_t M.t
+  val actor_send: env_t * string_t * value_t -> env_t M.t
+  val actor_spawn: env_t * expr_t -> (env_t * string_t) M.t
   val bool_and: bool_t * bool_t -> bool_t M.t
   val bool_not: bool_t -> bool_t M.t
   val bool_or: bool_t * bool_t -> bool_t M.t
@@ -360,15 +324,15 @@ module type INTERPRETER = sig
   val either_as_right: either_t -> value_t M.t
   val either_as_value: either_t -> value_t M.t
   val env_get_functions: env_t -> func_env_t M.t
-  val env_get_inbox: env_t * pid_t -> inbox_t M.t
-  val env_get_pid: env_t -> pid_t M.t
+  val env_get_inbox: env_t * string_t -> inbox_t M.t
+  val env_get_pid: env_t -> string_t M.t
   val env_get_threads: env_t -> thread_pool_t M.t
-  val env_read_func: env_t * name_t -> value_t M.t
+  val env_read_func: env_t * string_t -> value_t M.t
   val env_set_functions: env_t * func_env_t -> env_t M.t
-  val env_set_inbox: env_t * pid_t * inbox_t -> env_t M.t
-  val env_set_pid: env_t * pid_t -> env_t M.t
+  val env_set_inbox: env_t * string_t * inbox_t -> env_t M.t
+  val env_set_pid: env_t * string_t -> env_t M.t
   val env_set_threads: env_t * thread_pool_t -> env_t M.t
-  val env_write_func: env_t * name_t * value_t -> env_t M.t
+  val env_write_func: env_t * string_t * value_t -> env_t M.t
   val expr_reduce: env_t * expr_t -> (env_t * expr_t) M.t
   val expr_reduce_add: env_t * expr_t -> (env_t * expr_t) M.t
   val expr_reduce_call: env_t * expr_t -> (env_t * expr_t) M.t
@@ -393,7 +357,7 @@ module type INTERPRETER = sig
   val expr_reduce_sub: env_t * expr_t -> (env_t * expr_t) M.t
   val expr_throw_trace: env_t * expr_t -> (env_t * expr_t) M.t
   val func_as_value: func_t -> value_t M.t
-  val func_subst_in: name_t * value_t * expr_t -> expr_t M.t
+  val func_subst_in: string_t * value_t * expr_t -> expr_t M.t
   val int_add: int_t * int_t -> int_t M.t
   val int_as_value: int_t -> value_t M.t
   val int_div: int_t * int_t -> int_t M.t
@@ -401,7 +365,7 @@ module type INTERPRETER = sig
   val int_neg: int_t -> int_t M.t
   val int_sub: int_t * int_t -> int_t M.t
   val pair_as_value: pair_t -> value_t M.t
-  val pid_as_value: pid_t -> value_t M.t
+  val pid_as_value: string_t -> value_t M.t
   val queue_dequeue: 'v queue_t -> ('v queue_t * 'v) M.t
   val queue_enqueue: 'v queue_t * 'v -> ('v queue_t) M.t
   val queue_is_empty: 'v queue_t -> bool_t M.t
@@ -414,7 +378,7 @@ module type INTERPRETER = sig
   val value_as_func: value_t -> func_t M.t
   val value_as_int: value_t -> int_t M.t
   val value_as_pair: value_t -> pair_t M.t
-  val value_as_pid: value_t -> pid_t M.t
+  val value_as_pid: value_t -> string_t M.t
   val value_as_rec_func: value_t -> rec_func_t M.t
   val value_as_unit: value_t -> value_t M.t
 end

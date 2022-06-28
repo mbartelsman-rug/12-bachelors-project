@@ -10,7 +10,9 @@
     project.channels)
   (inline_tests)
   (preprocess
-    (pps ppx_inline_test)))
+    (pps
+      ppx_jane
+      ppx_inline_test)))
 (env
   (dev
     (flags
