@@ -503,6 +503,8 @@ module MakeInterpreter (F: UNSPEC) = struct
       (function () ->
         apply1 expr_reduce_func (env, expr)) ;
       (function () ->
+        apply1 expr_reduce_rec_func (env, expr)) ;
+      (function () ->
         apply1 expr_reduce_call (env, expr)) ;
       (function () ->
         apply1 expr_reduce_let (env, expr)) ;
@@ -921,9 +923,13 @@ module MakeInterpreter (F: UNSPEC) = struct
         | Take Ret id ->
             let* id' = apply1 value_as_chan id in
             let* buff = apply1 env_read_chan_buff (env, id') in
-            let* (buff', value) = apply1 queue_dequeue buff in
-            let* env' = apply1 env_write_chan_buff (env, id', buff') in
-            M.ret (env', Ret value)
+            M.branch [
+              (function () ->
+                let* (buff', value) = apply1 queue_dequeue buff in
+                let* env' = apply1 env_write_chan_buff (env, id', buff') in
+                M.ret (env', Ret value)) ;
+              (function () ->
+                M.ret (env, expr))]
         | _ -> M.fail ""
         end) ;
       (function () ->

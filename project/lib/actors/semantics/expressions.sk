@@ -48,6 +48,8 @@ val expr_reduce ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   or
     expr_reduce_func (env, expr)
   or
+    expr_reduce_rec_func (env, expr)
+  or
     expr_reduce_call (env, expr)
   or
     expr_reduce_let (env, expr)
@@ -314,8 +316,14 @@ val expr_reduce_self ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
 val expr_reduce_receive ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   let Receive = expr in
   let pid = actor_self (env) in
-  let (env', msg) = actor_receive (env, pid) in
-  (env', Ret msg)
+  branch
+    (* Message found, reduce *)
+    let (env', msg) = actor_receive (env, pid) in
+    (env', Ret msg)
+  or
+    (* No message, nothing happens *)
+    (env, Receive)
+  end
 
 val expr_reduce_spawn ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   let Spawn (expr) = expr in

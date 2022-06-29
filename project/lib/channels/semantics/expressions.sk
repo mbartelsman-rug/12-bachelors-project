@@ -46,6 +46,8 @@ val expr_reduce ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   or
     expr_reduce_func (env, expr)
   or
+    expr_reduce_rec_func (env, expr)
+  or
     expr_reduce_call (env, expr)
   or
     expr_reduce_let (env, expr)
@@ -335,9 +337,15 @@ val expr_reduce_take ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
     let Take (Ret id) = expr in
     let id' = value_as_chan (id) in
     let buff = env_read_chan_buff (env, id') in
-    let (buff', value) = queue_dequeue<value_t> (buff) in
-    let env' = env_write_chan_buff (env, id', buff') in
-    (env', Ret value)
+    branch
+      (* Message found, reduce *)
+      let (buff', value) = queue_dequeue<value_t> (buff) in
+      let env' = env_write_chan_buff (env, id', buff') in
+      (env', Ret value)
+    or
+      (* No message, nothing happens *)
+      (env, expr)
+    end
   or
     let Take id = expr in
     let (env', id') = expr_reduce (env, id) in

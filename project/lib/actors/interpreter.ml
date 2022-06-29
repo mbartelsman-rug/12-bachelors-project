@@ -514,6 +514,8 @@ module MakeInterpreter (F: UNSPEC) = struct
       (function () ->
         apply1 expr_reduce_func (env, expr)) ;
       (function () ->
+        apply1 expr_reduce_rec_func (env, expr)) ;
+      (function () ->
         apply1 expr_reduce_call (env, expr)) ;
       (function () ->
         apply1 expr_reduce_let (env, expr)) ;
@@ -800,8 +802,12 @@ module MakeInterpreter (F: UNSPEC) = struct
     begin match expr with
     | Receive ->
         let* pid = apply1 actor_self env in
-        let* (env', msg) = apply1 actor_receive (env, pid) in
-        M.ret (env', Ret msg)
+        M.branch [
+          (function () ->
+            let* (env', msg) = apply1 actor_receive (env, pid) in
+            M.ret (env', Ret msg)) ;
+          (function () ->
+            M.ret (env, Receive))]
     | _ -> M.fail ""
     end
   and expr_reduce_ret =
