@@ -1,0 +1,15 @@
+(library
+  (name project)
+  (public_name project)
+  (libraries
+    core
+    base
+    stdio
+    project.common
+    project.actors
+    project.channels
+    project.act2Ch
+    project.ch2Act)
+  (inline_tests)
+  (preprocess
+    (pps ppx_inline_test)))
