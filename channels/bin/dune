@@ -1,4 +1,0 @@
-(executable
- (public_name channels)
- (name main)
- (libraries channels))

@@ -1,4 +1,0 @@
-(executable
- (public_name concur)
- (name main)
- (libraries concur core base stdio async))

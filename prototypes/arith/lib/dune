@@ -1,6 +1,0 @@
-(library
- (name arith)
- (libraries base))
-(env
-  (dev
-    (flags (:standard -w -37))))

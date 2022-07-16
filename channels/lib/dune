@@ -1,7 +1,0 @@
-(include_subdirs unqualified)
-
-(library
- (name channels)
- (libraries core base async stdio)
- (inline_tests)
- (preprocess (pps ppx_inline_test)))

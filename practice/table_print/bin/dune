@@ -1,4 +1,0 @@
-(executable
- (public_name table_print)
- (name main)
- (libraries core base table_print))

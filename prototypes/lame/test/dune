@@ -1,3 +1,0 @@
-(test
- (name lame)
- (libraries base))
