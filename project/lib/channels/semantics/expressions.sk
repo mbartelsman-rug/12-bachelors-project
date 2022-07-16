@@ -42,8 +42,6 @@ type expr_t =
 
 val expr_reduce ((env, expr): (env_t, expr_t)): (env_t, expr_t) = 
   branch
-    expr_reduce_ret (env, expr)
-  or
     expr_reduce_func (env, expr)
   or
     expr_reduce_rec_func (env, expr)
@@ -76,9 +74,9 @@ val expr_reduce ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   or
     expr_reduce_new_ch (env, expr)
   or
-    expr_reduce_give (env, expr)
-  or
     expr_reduce_take (env, expr)
+  or
+    expr_reduce_give (env, expr)
   or
     expr_reduce_fork (env, expr)
   or
@@ -86,11 +84,6 @@ val expr_reduce ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   or
     expr_throw_trace (env, expr)
   end
-
-val expr_reduce_ret ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
-  (* Do nothing, this is irreducible *)
-  let Ret value = expr in
-  (env, Ret value)
 
 val expr_reduce_seq ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   branch
@@ -341,10 +334,12 @@ val expr_reduce_take ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
       (* Message found, reduce *)
       let (buff', value) = queue_dequeue<value_t> (buff) in
       let env' = env_write_chan_buff (env, id', buff') in
-      (env', Ret value)
+      let env'' = env_unset_waiting (env') in
+      (env'', Ret value)
     or
       (* No message, nothing happens *)
-      (env, expr)
+      let env' = env_set_waiting (env) in
+      (env', expr)
     end
   or
     let Take id = expr in

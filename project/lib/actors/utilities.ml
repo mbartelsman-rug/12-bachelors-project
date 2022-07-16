@@ -1,5 +1,6 @@
 open Interpreter.Interpreter
 
+
 let select_actor env = 
   let (_, tpool, ch, fn) = env in
   let* (tpool', (pid, expr)) = queue_dequeue tpool in
@@ -8,15 +9,16 @@ let select_actor env =
 
 
 let schedule_actor (env, thread) =
-  let (pid, tpool, ch, fn) = env in
-  let* tpool' = queue_enqueue (tpool, (pid, thread)) in
-  let env' = ("", tpool', ch, fn) in
+  let ((pid, wait), tpool, ch, fn) = env in
+  let* tpool' = queue_enqueue (tpool, ((pid, wait), thread)) in
+  let env' = (("", False), tpool', ch, fn) in
   M.ret env'
 
 
 let rec print_threads' tlist tstr =
   begin match tlist with
-  | (pid, thd) :: ttl -> print_threads' ttl (tstr ^ "||" ^ pid ^ "::" ^ (string_of_expr thd) ^ "\n")
+  | ((pid, True), thd) :: ttl -> print_threads' ttl (tstr ^ "||" ^ pid ^ " :: " ^ (string_of_expr thd) ^ "\n")
+  | ((pid, False), thd) :: ttl -> print_threads' ttl (tstr ^ "||" ^ pid ^ " :> " ^ (string_of_expr thd) ^ "\n")
   | [] -> tstr
   end
   
@@ -31,9 +33,18 @@ let print_threads env =
 let check_all_actors env = 
   let open Base in
   let (_, tpool, _, _) = env in
-  begin match Queue.is_empty tpool with
-  | true -> `Empty
-  | false -> `NotEmpty
+  let empty = Queue.is_empty tpool in
+  begin match empty with
+  | true -> `Finished
+  | false -> (
+    let all_waiting = List.for_all
+      (Queue.to_list tpool)
+      ~f:(fun ((_, waiting), _) -> unmake_bool waiting) in
+    begin match all_waiting with
+    | false -> `Running
+    | true -> `Livelock
+    end
+  )
   end
 
 
@@ -49,7 +60,9 @@ let rec evaluate' env results print =
   let* (env', expr') = expr_reduce (env, expr) in
   let* (env'', results') = 
   begin match check_actor expr' with
-  | `Finished    -> M.ret (env', (pid, expr') :: results)
+  | `Finished    ->
+    Stdio.print_endline ((unmake_name (fst pid)) ^ ": " ^ (string_of_expr expr')) ;
+    M.ret (env', (pid, expr') :: results)
   | `NotFinished ->
     let* env'' = schedule_actor (env', expr') in
     M.ret (env'', results)
@@ -59,8 +72,9 @@ let rec evaluate' env results print =
   | false -> ()
   end ;
   begin match check_all_actors env'' with
-  | `Empty -> results' |> M.ret
-  | `NotEmpty -> evaluate' env'' results' print
+  | `Finished -> results' |> M.ret
+  | `Livelock -> results' |> M.ret
+  | `Running -> evaluate' env'' results' print
   end
 
 
@@ -72,9 +86,9 @@ let evaluate_with_pids ?(print = false) expr =
 
 
 let evaluate ?(print = false) expr =
-  let open Base in
-  let results = evaluate_with_pids expr ~print:print in
-  List.map results ~f:(snd)
+  evaluate_with_pids expr ~print:print
+  |> Base.List.map ~f:(fun ((pid,_), expr) -> (pid, expr))
+  |> Base.List.sort ~compare:(fun (a,_) (b,_) -> Base.String.compare a b)
 
 
 let parse (strn: string): expr_t =
@@ -87,6 +101,6 @@ let serialize (expr: expr_t): string =
 
 let run (program: string): string =
   parse program
-  |> evaluate
-  |> Base.List.map ~f:(serialize)
+  |> evaluate ~print:(false)
+  |> Base.List.map ~f:(fun (pid, expr) -> (unmake_name pid) ^ ": " ^ (serialize expr))
   |> Base.String.concat ~sep:("\n||")

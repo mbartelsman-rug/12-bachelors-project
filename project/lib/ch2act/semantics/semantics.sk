@@ -248,7 +248,7 @@ val translate_fork (expr: expr_ch_t): (expr_act_t) =
   let ChFork (ch_expr) = expr in
   let new_act = string_unique_id () in
   let act_expr = translate (ch_expr) in
-  ActLet (new_act, act_expr, ActRet UnitVal)
+  ActLet (new_act, Spawn act_expr, ActRet UnitVal)
 
 val list_empty (_: ()): expr_act_t = ActLeft (ActRet UnitVal)
 

@@ -138,85 +138,93 @@ module Unspec = struct
   module M = Common.Monads.Identity
 
 
-  let list_empty (): expr_act_t =
+  let list_empty: expr_act_t =
     Left (Ret (UnitVal))
 
-  let list_concat (): expr_act_t =
-    (RecFunc ("__concat", "__args",
-      (Let ("__xs'", (Fst (Var ("__args"))),
-      (Let ("__ys", (Snd (Var ("__args"))),
-      (Match ((Var "__xs'"),
-        (Func ("__xs",
-          (Var "__ys"))),
-        (Func ("__xs",
-          (Let ("__hd", (Fst (Var "__xs")),
-          (Let ("__tl", (Snd (Var "__xs")),
+  let list_into (elem): expr_act_t =
+    (Right (
+      (Pair (
+        elem,
+        list_empty
+      ))
+    ))
+
+  let list_concat: expr_act_t =
+    (RecFunc ("__concat_concat", "__concat_args",
+      (Let ("__concat_xs'", (Fst (Var ("__concat_args"))),
+      (Let ("__concat_ys", (Snd (Var ("__concat_args"))),
+      (Match ((Var "__concat_xs'"),
+        (Func ("__concat_xs",
+          (Var "__concat_ys"))),
+        (Func ("__concat_xs",
+          (Let ("__concat_hd", (Fst (Var "__concat_xs")),
+          (Let ("__concat_tl", (Snd (Var "__concat_xs")),
           (Right (
             (Pair (
-              (Var "__hd"),
+              (Var "__concat_hd"),
               (Call (
-                (Var "__concat"),
-                (Pair ((Var "__tl"),(Var "__ys")))))))))))))))))))))))
+                (Var "__concat_concat"),
+                (Pair ((Var "__concat_tl"),(Var "__concat_ys")))))))))))))))))))))))
 
-  let drain (): expr_act_t =
+  let drain: expr_act_t =
     (Func (
-      "__x",
-      (Let ("__vals", (Fst (Var "__x")),
-      (Let ("__pids", (Snd (Var "__x")),
+      "__drain_x",
+      (Let ("__drain_vals", (Fst (Var "__drain_x")),
+      (Let ("__drain_pids", (Snd (Var "__drain_x")),
       (Match (
-        (Var "__vals"),
+        (Var "__drain_vals"),
         (Func (
-          "__vv",
-          (Pair ((Var "__vals"), (Var "__pids"))))),
+          "__drain_vv",
+          (Pair ((Var "__drain_vals"), (Var "__drain_pids"))))),
         (Func (
-          "__vv",
-          (Let ("__v", (Fst (Var "__vv")),
-          (Let ("__vs", (Snd (Var "__vv")),
+          "__drain_vv",
+          (Let ("__drain_v", (Fst (Var "__drain_vv")),
+          (Let ("__drain_vs", (Snd (Var "__drain_vv")),
           (Match (
-            (Var "__pids"),
+            (Var "__drain_pids"),
             (Func (
-              "__pp",
-              (Pair ((Var "__vals"), (Var "__pids"))))),
+              "__drain_pp",
+              (Pair ((Var "__drain_vals"), (Var "__drain_pids"))))),
             (Func (
-              "__pp",
-              (Let ("__p", (Fst (Var "__pp")),
-              (Let ("__ps", (Snd (Var "__pp")),
+              "__drain_pp",
+              (Let ("__drain_p", (Fst (Var "__drain_pp")),
+              (Let ("__drain_ps", (Snd (Var "__drain_pp")),
               (Seq (
                 (Send (
-                  (Var "__v"),
-                  (Var "__pid"))),
+                  (Var "__drain_v"),
+                  (Var "__drain_p"))),
                 (Pair (
-                  (Var "__vs"),
-                  (Var "__pids")))))))))))))))))))))))))))
+                  (Var "__drain_vs"),
+                  (Var "__drain_ps")))))))))))))))))))))))))))
                   
 
   let body (): expr_act_t M.t =
     let expr: expr_act_t =
       RecFunc (
-        "__this_func",
-        "__state",
-        (Let ("__in_val", (Receive),
-        (Let ("__vals", (Fst (Var "__state")),
-        (Let ("__pids", (Snd (Var "__state")),
-        (Match ((Var "__in_val"),
-          (Func ("__val",
-            (Let ("__vals'", (Call (
-                list_concat (),
-                (Pair ((Var "__vals"), (Var "__val"))))),
-            (Let ("__state'", (Call (
-                drain (),
-                (Pair ((Var "__vals'"), (Var "__pids"))))),
-            (Call ((Var "__this_func"), (Var "__state'"))))))))),
-          (Func ("__pid",
-            (Let ("__pids'",
+        "__body_this_func",
+        "__body_state",
+        (Let ("__body_in_val", (Receive),
+        (Let ("__body_vals", (Fst (Var "__body_state")),
+        (Let ("__body_pids", (Snd (Var "__body_state")),
+        (Match ((Var "__body_in_val"),
+          (Func ("__body_val",
+            (Let ("__body_vals'", (Call (
+                list_concat,
+                (Pair ((Var "__body_vals"), list_into (Var "__body_val"))))),
+            (Let ("__body_state'", (Call (
+                drain,
+                (Pair ((Var "__body_vals'"), (Var "__body_pids"))))),
+            (Call ((Var "__body_this_func"), (Var "__body_state'"))))))))),
+          (Func ("__body_pid",
+            (Let ("__body_pids'",
             (Call (
-                list_concat (),
-                (Pair ((Var "__pids"), (Var "__pid"))))),
-            (Let ("__state'",
+                list_concat,
+                (Pair ((Var "__body_pids"), list_into (Var "__body_pid"))))),
+            (Let ("__body_state'",
               (Call (
-                drain (),
-                (Pair ((Var "__vals"), (Var "__pids'"))))),
-            (Call ((Var "__this_func"), (Var "__state'")))))))))))))))))) in
+                drain,
+                (Pair ((Var "__body_vals"), (Var "__body_pids'"))))),
+            (Call ((Var "__body_this_func"), (Var "__body_state'")))))))))))))))))) in
     M.ret expr
 
 
@@ -357,7 +365,7 @@ module MakeInterpreter (F: UNSPEC): INTERPRETER = struct
     | Fork ch_expr ->
         let* new_act = apply1 string_unique_id () in
         let* act_expr = apply1 translate ch_expr in
-        M.ret (Let (new_act, act_expr, Ret UnitVal))
+        M.ret (Let (new_act, Spawn act_expr, Ret UnitVal))
     | _ -> M.fail ""
     end
   and translate_fst expr =

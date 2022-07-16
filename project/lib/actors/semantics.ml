@@ -63,15 +63,16 @@ module type UNSPEC = sig
   | True
   | False
   and act_env_t = (value_t queue_t) dict_t
-  and env_t = string_t * (string_t * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t
+  and env_t = (string_t * bool_t) * ((string_t * bool_t) * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t
   and func_env_t = value_t dict_t
   and func_t = string_t * expr_t
   and inbox_t = value_t queue_t
   and name_t = string_t
   and pair_t = value_t * value_t
   and pid_t = string_t
+  and pinfo_t = string_t * bool_t
   and rec_func_t = string_t * string_t * expr_t
-  and thread_pool_t = (string_t * expr_t) queue_t
+  and thread_pool_t = ((string_t * bool_t) * expr_t) queue_t
 
   val dict_drop: 'v dict_t * string_t -> ('v dict_t) M.t
   val dict_has_some: 'v dict_t * string_t -> bool_t M.t
@@ -137,15 +138,16 @@ module Unspec (M: MONAD) (T: TYPES) = struct
   | True
   | False
   and act_env_t = (value_t queue_t) dict_t
-  and env_t = string_t * (string_t * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t
+  and env_t = (string_t * bool_t) * ((string_t * bool_t) * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t
   and func_env_t = value_t dict_t
   and func_t = string_t * expr_t
   and inbox_t = value_t queue_t
   and name_t = string_t
   and pair_t = value_t * value_t
   and pid_t = string_t
+  and pinfo_t = string_t * bool_t
   and rec_func_t = string_t * string_t * expr_t
-  and thread_pool_t = (string_t * expr_t) queue_t
+  and thread_pool_t = ((string_t * bool_t) * expr_t) queue_t
 
   let dict_drop _ = raise (NotImplemented "dict_drop")
   let dict_has_some _ = raise (NotImplemented "dict_has_some")
@@ -214,15 +216,16 @@ module type INTERPRETER = sig
   | True
   | False
   and act_env_t = (value_t queue_t) dict_t
-  and env_t = string_t * (string_t * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t
+  and env_t = (string_t * bool_t) * ((string_t * bool_t) * expr_t) queue_t * (value_t queue_t) dict_t * value_t dict_t
   and func_env_t = value_t dict_t
   and func_t = string_t * expr_t
   and inbox_t = value_t queue_t
   and name_t = string_t
   and pair_t = value_t * value_t
   and pid_t = string_t
+  and pinfo_t = string_t * bool_t
   and rec_func_t = string_t * string_t * expr_t
-  and thread_pool_t = (string_t * expr_t) queue_t
+  and thread_pool_t = ((string_t * bool_t) * expr_t) queue_t
 
   val actor_receive: env_t * pid_t -> (env_t * value_t) M.t
   val actor_self: env_t -> pid_t M.t
@@ -249,6 +252,8 @@ module type INTERPRETER = sig
   val env_set_inbox: env_t * pid_t * inbox_t -> env_t M.t
   val env_set_pid: env_t * pid_t -> env_t M.t
   val env_set_threads: env_t * thread_pool_t -> env_t M.t
+  val env_set_waiting: env_t -> env_t M.t
+  val env_unset_waiting: env_t -> env_t M.t
   val env_write_func: env_t * name_t * value_t -> env_t M.t
   val expr_reduce: env_t * expr_t -> (env_t * expr_t) M.t
   val expr_reduce_add: env_t * expr_t -> (env_t * expr_t) M.t
@@ -324,8 +329,9 @@ module MakeInterpreter (F: UNSPEC) = struct
   and actor_spawn =
     function (env, expr) ->
     let* pid = apply1 string_unique_id () in
+    let pinfo = (pid, False) in
     let* tpool = apply1 env_get_threads env in
-    let* tpool' = apply1 queue_enqueue (tpool, (pid, expr)) in
+    let* tpool' = apply1 queue_enqueue (tpool, (pinfo, expr)) in
     let* env' = apply1 env_set_threads (env, tpool') in
     let* inbox = apply1 queue_new () in
     let* env'' = apply1 env_set_inbox (env', pid, inbox) in
@@ -389,7 +395,7 @@ module MakeInterpreter (F: UNSPEC) = struct
     let* inbox = apply1 dict_read (boxes, pid) in
     M.ret inbox
   and env_get_pid env =
-    let (pid, _, _, _) = env in
+    let ((pid, _), _, _, _) = env in
     M.ret pid
   and env_get_threads env =
     let (_, th, _, _) = env in
@@ -410,12 +416,18 @@ module MakeInterpreter (F: UNSPEC) = struct
     M.ret (self, th, boxes', fn)
   and env_set_pid =
     function (env, pid') ->
-    let (_, th, ch, fn) = env in
-    M.ret (pid', th, ch, fn)
+    let ((_, status), th, ch, fn) = env in
+    M.ret ((pid', status), th, ch, fn)
   and env_set_threads =
     function (env, th') ->
     let (pid, _, ch, fn) = env in
     M.ret (pid, th', ch, fn)
+  and env_set_waiting env =
+    let ((pid, _), th, ch, fn) = env in
+    M.ret ((pid, True), th, ch, fn)
+  and env_unset_waiting env =
+    let ((pid, _), th, ch, fn) = env in
+    M.ret ((pid, False), th, ch, fn)
   and env_write_func =
     function (env, name, func) ->
     let* funcs = apply1 env_get_functions env in
@@ -723,9 +735,11 @@ module MakeInterpreter (F: UNSPEC) = struct
         M.branch [
           (function () ->
             let* (env', msg) = apply1 actor_receive (env, pid) in
-            M.ret (env', Ret msg)) ;
+            let* env'' = apply1 env_unset_waiting env' in
+            M.ret (env'', Ret msg)) ;
           (function () ->
-            M.ret (env, Receive))]
+            let* env' = apply1 env_set_waiting env in
+            M.ret (env', Receive))]
     | _ -> M.fail ""
     end
   and expr_reduce_ret =

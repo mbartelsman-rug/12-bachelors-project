@@ -65,13 +65,13 @@ module type UNSPEC = sig
   and chan_buff_t = value_t queue_t
   and chan_env_t = (value_t queue_t) dict_t
   and chan_id_t = string_t
-  and env_t = expr_t queue_t * (value_t queue_t) dict_t * value_t dict_t
+  and env_t = bool_t * (expr_t * bool_t) queue_t * (value_t queue_t) dict_t * value_t dict_t
   and func_env_t = value_t dict_t
   and func_t = string_t * expr_t
   and name_t = string_t
   and pair_t = value_t * value_t
   and rec_func_t = string_t * string_t * expr_t
-  and thread_pool_t = expr_t queue_t
+  and thread_pool_t = (expr_t * bool_t) queue_t
 
   val dict_drop: 'v dict_t * string_t -> ('v dict_t) M.t
   val dict_has_some: 'v dict_t * string_t -> bool_t M.t
@@ -139,13 +139,13 @@ module Unspec (M: MONAD) (T: TYPES) = struct
   and chan_buff_t = value_t queue_t
   and chan_env_t = (value_t queue_t) dict_t
   and chan_id_t = string_t
-  and env_t = expr_t queue_t * (value_t queue_t) dict_t * value_t dict_t
+  and env_t = bool_t * (expr_t * bool_t) queue_t * (value_t queue_t) dict_t * value_t dict_t
   and func_env_t = value_t dict_t
   and func_t = string_t * expr_t
   and name_t = string_t
   and pair_t = value_t * value_t
   and rec_func_t = string_t * string_t * expr_t
-  and thread_pool_t = expr_t queue_t
+  and thread_pool_t = (expr_t * bool_t) queue_t
 
   let dict_drop _ = raise (NotImplemented "dict_drop")
   let dict_has_some _ = raise (NotImplemented "dict_has_some")
@@ -216,13 +216,13 @@ module type INTERPRETER = sig
   and chan_buff_t = value_t queue_t
   and chan_env_t = (value_t queue_t) dict_t
   and chan_id_t = string_t
-  and env_t = expr_t queue_t * (value_t queue_t) dict_t * value_t dict_t
+  and env_t = bool_t * (expr_t * bool_t) queue_t * (value_t queue_t) dict_t * value_t dict_t
   and func_env_t = value_t dict_t
   and func_t = string_t * expr_t
   and name_t = string_t
   and pair_t = value_t * value_t
   and rec_func_t = string_t * string_t * expr_t
-  and thread_pool_t = expr_t queue_t
+  and thread_pool_t = (expr_t * bool_t) queue_t
 
   val bool_and: bool_t * bool_t -> bool_t M.t
   val bool_not: bool_t -> bool_t M.t
@@ -247,6 +247,8 @@ module type INTERPRETER = sig
   val env_set_channels: env_t * chan_env_t -> env_t M.t
   val env_set_functions: env_t * func_env_t -> env_t M.t
   val env_set_threads: env_t * thread_pool_t -> env_t M.t
+  val env_set_waiting: env_t -> env_t M.t
+  val env_unset_waiting: env_t -> env_t M.t
   val env_write_chan_buff: env_t * chan_id_t * chan_buff_t -> env_t M.t
   val env_write_func: env_t * name_t * value_t -> env_t M.t
   val expr_reduce: env_t * expr_t -> (env_t * expr_t) M.t
@@ -265,7 +267,6 @@ module type INTERPRETER = sig
   val expr_reduce_new_ch: env_t * expr_t -> (env_t * expr_t) M.t
   val expr_reduce_pair: env_t * expr_t -> (env_t * expr_t) M.t
   val expr_reduce_rec_func: env_t * expr_t -> (env_t * expr_t) M.t
-  val expr_reduce_ret: env_t * expr_t -> (env_t * expr_t) M.t
   val expr_reduce_right: env_t * expr_t -> (env_t * expr_t) M.t
   val expr_reduce_seq: env_t * expr_t -> (env_t * expr_t) M.t
   val expr_reduce_snd: env_t * expr_t -> (env_t * expr_t) M.t
@@ -365,17 +366,17 @@ module MakeInterpreter (F: UNSPEC) = struct
   and env_fork =
     function (env, expr) ->
     let* tpool = apply1 env_get_threads env in
-    let* tpool' = apply1 queue_enqueue (tpool, expr) in
+    let* tpool' = apply1 queue_enqueue (tpool, (expr, False)) in
     let* env' = apply1 env_set_threads (env, tpool') in
     M.ret env'
   and env_get_channels env =
-    let (_, ch, _) = env in
+    let (_, _, ch, _) = env in
     M.ret ch
   and env_get_functions env =
-    let (_, _, fn) = env in
+    let (_, _, _, fn) = env in
     M.ret fn
   and env_get_threads env =
-    let (th, _, _) = env in
+    let (_, th, _, _) = env in
     M.ret th
   and env_read_chan_buff =
     function (env, id) ->
@@ -389,16 +390,22 @@ module MakeInterpreter (F: UNSPEC) = struct
     M.ret f
   and env_set_channels =
     function (env, ch') ->
-    let (th, _, fn) = env in
-    M.ret (th, ch', fn)
+    let (wt, th, _, fn) = env in
+    M.ret (wt, th, ch', fn)
   and env_set_functions =
     function (env, fn') ->
-    let (th, ch, _) = env in
-    M.ret (th, ch, fn')
+    let (wt, th, ch, _) = env in
+    M.ret (wt, th, ch, fn')
   and env_set_threads =
     function (env, th') ->
-    let (_, ch, fn) = env in
-    M.ret (th', ch, fn)
+    let (wt, _, ch, fn) = env in
+    M.ret (wt, th', ch, fn)
+  and env_set_waiting env =
+    let (_, th, ch, fn) = env in
+    M.ret (True, th, ch, fn)
+  and env_unset_waiting env =
+    let (_, th, ch, fn) = env in
+    M.ret (False, th, ch, fn)
   and env_write_chan_buff =
     function (env, id, buff) ->
     let* chans = apply1 env_get_channels env in
@@ -414,8 +421,6 @@ module MakeInterpreter (F: UNSPEC) = struct
   and expr_reduce =
     function (env, expr) ->
     M.branch [
-      (function () ->
-        apply1 expr_reduce_ret (env, expr)) ;
       (function () ->
         apply1 expr_reduce_func (env, expr)) ;
       (function () ->
@@ -449,9 +454,9 @@ module MakeInterpreter (F: UNSPEC) = struct
       (function () ->
         apply1 expr_reduce_new_ch (env, expr)) ;
       (function () ->
-        apply1 expr_reduce_give (env, expr)) ;
-      (function () ->
         apply1 expr_reduce_take (env, expr)) ;
+      (function () ->
+        apply1 expr_reduce_give (env, expr)) ;
       (function () ->
         apply1 expr_reduce_fork (env, expr)) ;
       (function () ->
@@ -749,12 +754,6 @@ module MakeInterpreter (F: UNSPEC) = struct
         M.ret (env, Ret func)
     | _ -> M.fail ""
     end
-  and expr_reduce_ret =
-    function (env, expr) ->
-    begin match expr with
-    | Ret value -> M.ret (env, Ret value)
-    | _ -> M.fail ""
-    end
   and expr_reduce_right =
     function (env, expr) ->
     M.branch [
@@ -843,9 +842,11 @@ module MakeInterpreter (F: UNSPEC) = struct
               (function () ->
                 let* (buff', value) = apply1 queue_dequeue buff in
                 let* env' = apply1 env_write_chan_buff (env, id', buff') in
-                M.ret (env', Ret value)) ;
+                let* env'' = apply1 env_unset_waiting env' in
+                M.ret (env'', Ret value)) ;
               (function () ->
-                M.ret (env, expr))]
+                let* env' = apply1 env_set_waiting env in
+                M.ret (env', expr))]
         | _ -> M.fail ""
         end) ;
       (function () ->

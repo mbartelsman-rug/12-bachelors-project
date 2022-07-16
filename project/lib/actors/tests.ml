@@ -1,9 +1,13 @@
 open Utilities
 open Interpreter.Interpreter
 
+let prepare results = results
+  |> Base.List.map ~f:(fun (_, res) -> res)
+
 let%test "test_ret" =
   let left = [Ret (make_int 56)] in
-  let right = evaluate (Ret (make_int 56)) in
+  let right = evaluate (Ret (make_int 56))
+  |> prepare in
   (left = right)
 
 let%test "test_func" =
@@ -17,7 +21,8 @@ let%test "test_func" =
     Func (
       (make_name "x"),
       (Var (make_name "x")))
-  ) in
+  )
+  |> prepare in
   (left = right)
 
 let%test "test_call" =
@@ -32,7 +37,8 @@ let%test "test_call" =
       )),
       (Ret (make_int 0))
     )
-  ) in
+  )
+  |> prepare in
   (left = right)
 
 let%test "test_let" =
@@ -45,7 +51,8 @@ let%test "test_let" =
       (Ret (make_int 0)),
       (Var (make_name "x"))
     )
-  ) in
+  )
+  |> prepare in
   (left = right)
 
 let%test "test_neg" =
@@ -54,7 +61,8 @@ let%test "test_neg" =
   ] in
   let right = evaluate (
     Neg (Ret (make_int 5))
-  ) in
+  )
+  |> prepare in
   (left = right)
 
 let%test "test_add" =
@@ -66,7 +74,8 @@ let%test "test_add" =
       (Ret (make_int 6)),
       (Ret (make_int 2))
     )
-  ) in
+  )
+  |> prepare in
   (left = right)
 
 let%test "test_sub" =
@@ -78,7 +87,8 @@ let%test "test_sub" =
       (Ret (make_int 6)),
       (Ret (make_int 2))
     )
-  ) in
+  )
+  |> prepare in
   (left = right)
 
 let%test "test_mul" =
@@ -90,7 +100,8 @@ let%test "test_mul" =
       (Ret (make_int 6)),
       (Ret (make_int 2))
     )
-  ) in
+  )
+  |> prepare in
   (left = right)
 
 let%test "test_div" =
@@ -102,7 +113,8 @@ let%test "test_div" =
       (Ret (make_int 6)),
       (Ret (make_int 2))
     )
-  ) in
+  )
+  |> prepare in
   (left = right)
 
 let%test "test_pair" =
@@ -119,7 +131,8 @@ let%test "test_pair" =
       (Ret (make_int 1)),
       (Ret (make_int 2))
     ))
-  ) in
+  )
+  |> prepare in
   (left = right)
 
 let%test "test_fst" =
@@ -133,7 +146,8 @@ let%test "test_fst" =
         (Ret (make_int 2))
       ))
     )
-  ) in
+  )
+  |> prepare in
   (left = right)
 
 let%test "test_snd" =
@@ -147,7 +161,8 @@ let%test "test_snd" =
         (Ret (make_int 2))
       ))
     )
-  ) in
+  )
+  |> prepare in
   (left = right)
 
 let%test "test_left" =
@@ -160,7 +175,8 @@ let%test "test_left" =
   ] in
   let right = evaluate (
     Left (Ret UnitVal)
-  ) in
+  )
+  |> prepare in
   (left = right)
 
 let%test "test_right" =
@@ -173,7 +189,8 @@ let%test "test_right" =
   ] in
   let right = evaluate (
     Right (Ret UnitVal)
-  ) in
+  )
+  |> prepare in
   (left = right)
 
 
@@ -188,7 +205,8 @@ let%test "test_comms" =
       (Self)
     )) >>
     (Receive)
-  ) in
+  )
+  |> prepare in
   (left = right)
 
 let%test "test_spawn" =
@@ -202,7 +220,8 @@ let%test "test_spawn" =
       (Ret (make_int 7))
     ) >>
     (Ret (make_int 7))
-  ) in
+  )
+  |> prepare in
   (left = right)
 
 let%test "test_spawned_comms" =
@@ -223,5 +242,6 @@ let right = evaluate (
     )) >>
     (Receive)
   )
-) in
+)
+|> prepare in
 (left = right)

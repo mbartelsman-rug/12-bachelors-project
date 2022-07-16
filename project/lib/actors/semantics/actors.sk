@@ -6,6 +6,7 @@
  *============================================*)
 
 type pid_t := string_t
+type pinfo_t := (pid_t, bool_t)
 type inbox_t := queue_t<value_t>
 
 val actor_self (env: env_t): (pid_t) =
@@ -19,9 +20,10 @@ val actor_receive ((env, pid): (env_t, pid_t)): (env_t, value_t) =
 
 val actor_spawn ((env, expr): (env_t, expr_t)): (env_t, pid_t) =
   let pid = string_unique_id () in
+  let pinfo = (pid, False) in
 
   let tpool = env_get_threads (env) in
-  let tpool' = queue_enqueue<(pid_t, expr_t)> (tpool, (pid, expr)) in
+  let tpool' = queue_enqueue<(pinfo_t, expr_t)> (tpool, (pinfo, expr)) in
   let env' = env_set_threads (env, tpool') in
 
   let inbox = queue_new<value_t> () in

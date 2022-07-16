@@ -8,18 +8,26 @@
 
 (* TODO: Maybe remove func_env *)
 
-type env_t := (pid_t, thread_pool_t, act_env_t, func_env_t)
+type env_t := (pinfo_t, thread_pool_t, act_env_t, func_env_t)
 
-type thread_pool_t := queue_t<(pid_t, expr_t)>
+type thread_pool_t := queue_t<(pinfo_t, expr_t)>
 type act_env_t := dict_t<inbox_t>
 type func_env_t := dict_t<value_t>
 
 val env_get_pid (env: env_t): (pid_t) =
-  let (pid, _, _, _) = env in pid
+  let ((pid, _), _, _, _) = env in pid
 
 val env_set_pid ((env, pid'): (env_t, pid_t)): (env_t) =
-  let (_, th, ch, fn) = env in
-  (pid', th, ch, fn)
+  let ((_, status), th, ch, fn) = env in
+  ((pid', status), th, ch, fn)
+
+val env_set_waiting (env: env_t): (env_t) =
+  let ((pid, _), th, ch, fn) = env in
+  ((pid, True), th, ch, fn)
+
+val env_unset_waiting (env: env_t): (env_t) =
+  let ((pid, _), th, ch, fn) = env in
+  ((pid, False), th, ch, fn)
 
 val env_get_threads (env: env_t): (thread_pool_t) =
   let (_, th, _, _) = env in th

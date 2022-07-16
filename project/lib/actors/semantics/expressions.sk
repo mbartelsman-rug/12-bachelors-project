@@ -78,11 +78,11 @@ val expr_reduce ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   or
     expr_reduce_self (env, expr)
   or
-    expr_reduce_receive (env, expr)
-  or
     expr_reduce_spawn (env, expr)
   or
     expr_reduce_send (env, expr)
+  or
+    expr_reduce_receive (env, expr)
   or
     expr_throw_trace (env, expr)
   end
@@ -317,12 +317,12 @@ val expr_reduce_receive ((env, expr): (env_t, expr_t)): (env_t, expr_t) =
   let Receive = expr in
   let pid = actor_self (env) in
   branch
-    (* Message found, reduce *)
     let (env', msg) = actor_receive (env, pid) in
-    (env', Ret msg)
+    let env'' = env_unset_waiting (env') in
+    (env'', Ret msg)
   or
-    (* No message, nothing happens *)
-    (env, Receive)
+    let env' = env_set_waiting (env) in
+    (env', Receive)
   end
 
 val expr_reduce_spawn ((env, expr): (env_t, expr_t)): (env_t, expr_t) =

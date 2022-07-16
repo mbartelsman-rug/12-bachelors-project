@@ -1,38 +1,48 @@
 open Interpreter.Interpreter
 
 let select_thread env = 
-  let (tpool, ch, fn) = env in
-  let* (tpool', expr) = queue_dequeue tpool in
-  let env' = (tpool', ch, fn) in
+  let (_, tpool, ch, fn) = env in
+  let* (tpool', (expr, wait)) = queue_dequeue tpool in
+  let env' = (wait, tpool', ch, fn) in
   M.ret (env', expr)
 
 
 let schedule_thread (env, thread) =
-  let (tpool, ch, fn) = env in
-  let* tpool' = queue_enqueue (tpool, thread) in
-  let env' = (tpool', ch, fn) in
+  let (wait, tpool, ch, fn) = env in
+  let* tpool' = queue_enqueue (tpool, (thread, wait)) in
+  let env' = (False, tpool', ch, fn) in
   M.ret env'
 
 
 let rec print_threads' tlist tstr =
   match tlist with
-  | thd :: ttl -> print_threads' ttl (tstr ^ "|| " ^ (string_of_expr thd) ^ "\n")
+  | (thd, True) :: ttl -> print_threads' ttl (tstr ^ "||: " ^ (string_of_expr thd) ^ "\n")
+  | (thd, False) :: ttl -> print_threads' ttl (tstr ^ "||> " ^ (string_of_expr thd) ^ "\n")
   | [] -> tstr
   
 
 let print_threads env =
   let open Base in
-  let (tpool, _, _) = env in
+  let (_, tpool, _, _) = env in
   let tlist = Queue.to_list tpool in
   print_threads' tlist ""
 
 
 let check_all_threads env = 
   let open Base in
-  let (tpool, _, _) = env in
-  match Queue.is_empty tpool with
-  | true -> `Empty
-  | false -> `NotEmpty
+  let (_, tpool, _, _) = env in
+  begin match Queue.is_empty tpool with
+  | true -> `Finished
+  | false -> (
+    let all_waiting = List.for_all
+      (Queue.to_list tpool)
+      ~f:(fun (_, waiting) -> unmake_bool waiting) in
+    begin match all_waiting with
+    | false -> `Running
+    | true -> `Livelock
+    end
+  )
+  end
 
 
 let check_thread expr =
@@ -45,21 +55,24 @@ let rec evaluate' env results print =
   let* (env, expr) = select_thread env in
   let* (env', expr') = expr_reduce (env, expr) in
   let* (env'', results') = 
-  ( match check_thread expr' with
-  | `Finished -> M.ret (env', expr' :: results)
-  | `NotFinished ->
-    ( let* env'' = schedule_thread (env', expr') in
-      M.ret (env'', results)
-    )
-  ) in
-  ( match print with
+  begin match check_thread expr' with
+  | `Finished ->
+    Stdio.print_endline (string_of_expr expr') ;
+    M.ret (env', expr' :: results)
+  | `NotFinished -> (
+    let* env'' = schedule_thread (env', expr') in
+    M.ret (env'', results)
+  )
+  end in
+  begin match print with
     | true -> Stdio.print_endline (print_threads env)
     | _ -> ()
-  ) ;
-  ( match check_all_threads env'' with
-  | `Empty -> results' |> M.ret
-  | `NotEmpty -> evaluate' env'' results' print
-  )
+  end ;
+  begin match check_all_threads env'' with
+  | `Finished -> results' |> M.ret
+  | `Livelock -> results' |> M.ret
+  | `Running -> evaluate' env'' results' print
+  end
 
 
 let evaluate ?(print = false) expr =
