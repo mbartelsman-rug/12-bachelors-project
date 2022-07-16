@@ -1,2 +1,6 @@
 (test
- (name project))
+ (name tests)
+ (libraries
+   core
+   base
+   stdio))

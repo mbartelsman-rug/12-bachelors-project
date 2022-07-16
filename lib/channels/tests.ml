@@ -1,11 +1,6 @@
 open Utilities
 open Interpreter.Interpreter
 
-let%test "test_ret" =
-  let left = [Ret (make_int 56)] in
-  let right = evaluate (Ret (make_int 56)) in
-  (left = right)
-
 let%test "test_func" =
   let left = [
     Ret (
@@ -204,6 +199,7 @@ let%test "test_fork" =
   ] in
   let right = evaluate (
     Fork (
+      (Ret UnitVal) >>
       (Ret (make_int 7))
     ) >>
     (Ret (make_int 7))
@@ -217,6 +213,7 @@ let left = [
   Ret UnitVal ;
   Ret UnitVal
 ] in
+Stdio.print_endline "\n RUN :::::" ;
 let right = evaluate (
   Let (
     (make_name "ch"),

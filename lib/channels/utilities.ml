@@ -28,7 +28,7 @@ let print_threads env =
   print_threads' tlist ""
 
 
-let check_all_threads env = 
+let check_all_threads env locked = 
   let open Base in
   let (_, tpool, _, _) = env in
   begin match Queue.is_empty tpool with
@@ -39,7 +39,13 @@ let check_all_threads env =
       ~f:(fun (_, waiting) -> unmake_bool waiting) in
     begin match all_waiting with
     | false -> `Running
-    | true -> `Livelock
+    | true -> 
+      (* Hack to make sure all threads are evaluated at least once before
+         declaring a livelock situation *)
+      begin match locked with
+      | `Locked num -> `Livelock (num - 1)
+      | `NotLocked -> `Livelock (Base.Queue.length tpool)
+      end
     end
   )
   end
@@ -51,7 +57,7 @@ let check_thread expr =
   | _ -> `NotFinished
 
 
-let rec evaluate' env results print =
+let rec evaluate' env results locked print =
   let* (env, expr) = select_thread env in
   let* (env', expr') = expr_reduce (env, expr) in
   let* (env'', results') = 
@@ -68,10 +74,11 @@ let rec evaluate' env results print =
     | true -> Stdio.print_endline (print_threads env)
     | _ -> ()
   end ;
-  begin match check_all_threads env'' with
+  begin match check_all_threads env'' locked with
   | `Finished -> results' |> M.ret
-  | `Livelock -> results' |> M.ret
-  | `Running -> evaluate' env'' results' print
+  | `Livelock 0 -> results' |> M.ret
+  | `Livelock n -> evaluate' env'' results' (`Locked n) print
+  | `Running -> evaluate' env'' results' `NotLocked print
   end
 
 
@@ -79,7 +86,7 @@ let evaluate ?(print = false) expr =
   let env = make_env () in
   ( let* env' = env_fork (env, expr) in
     let results = [] in
-    evaluate' env' results print
+    evaluate' env' results `NotLocked print
   ) |> M.extract
 
 let parse (strn: string): expr_t =

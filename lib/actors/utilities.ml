@@ -30,7 +30,7 @@ let print_threads env =
   print_threads' tlist "\n"
 
 
-let check_all_actors env = 
+let check_all_actors env locked = 
   let open Base in
   let (_, tpool, _, _) = env in
   let empty = Queue.is_empty tpool in
@@ -40,10 +40,16 @@ let check_all_actors env =
     let all_waiting = List.for_all
       (Queue.to_list tpool)
       ~f:(fun ((_, waiting), _) -> unmake_bool waiting) in
-    begin match all_waiting with
-    | false -> `Running
-    | true -> `Livelock
-    end
+      begin match all_waiting with
+      | false -> `Running
+      | true -> 
+        (* Hack to make sure all threads are evaluated at least once before
+           declaring a livelock situation *)
+        begin match locked with
+        | `Locked num -> `Livelock (num - 1)
+        | `NotLocked -> `Livelock (Base.Queue.length tpool)
+        end
+      end
   )
   end
 
@@ -55,7 +61,7 @@ let check_actor expr =
   end
 
 
-let rec evaluate' env results print =
+let rec evaluate' env results locked print =
   let* (env, pid, expr) = select_actor env in
   let* (env', expr') = expr_reduce (env, expr) in
   let* (env'', results') = 
@@ -71,17 +77,18 @@ let rec evaluate' env results print =
   | true  -> Stdio.print_endline (print_threads env)
   | false -> ()
   end ;
-  begin match check_all_actors env'' with
+  begin match check_all_actors env'' locked with
   | `Finished -> results' |> M.ret
-  | `Livelock -> results' |> M.ret
-  | `Running -> evaluate' env'' results' print
+  | `Livelock 0 -> results' |> M.ret
+  | `Livelock n -> evaluate' env'' results' (`Locked n) print
+  | `Running -> evaluate' env'' results' `NotLocked print
   end
 
 
 let evaluate_with_pids ?(print = false) expr =
   let env = make_env () in
   ( let* (env', _) = actor_spawn (env, expr) in
-    evaluate' env' [] print
+    evaluate' env' [] `NotLocked print
   ) |> M.extract
 
 
