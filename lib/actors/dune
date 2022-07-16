@@ -1,11 +1,11 @@
 (library
   (name actors)
-  (public_name project.actors)
+  (public_name ActorsAndChannels.actors)
   (libraries
     core
     base
     stdio
-    project.common)
+    ActorsAndChannels.common)
   (inline_tests)
   (preprocess
     (pps

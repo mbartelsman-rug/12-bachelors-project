@@ -5,4 +5,4 @@
     core
     base
     stdio
-    project))
+    ActorsAndChannels))

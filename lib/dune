@@ -1,0 +1,15 @@
+(library
+  (name ActorsAndChannels)
+  (public_name ActorsAndChannels)
+  (libraries
+    core
+    base
+    stdio
+    ActorsAndChannels.common
+    ActorsAndChannels.actors
+    ActorsAndChannels.channels
+    ActorsAndChannels.act2Ch
+    ActorsAndChannels.ch2Act)
+  (inline_tests)
+  (preprocess
+    (pps ppx_inline_test)))

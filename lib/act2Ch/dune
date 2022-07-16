@@ -1,13 +1,13 @@
 (library
   (name act2Ch)
-  (public_name project.act2Ch)
+  (public_name ActorsAndChannels.act2Ch)
   (libraries
     core
     base
     stdio
-    project.common
-    project.actors
-    project.channels)
+    ActorsAndChannels.common
+    ActorsAndChannels.actors
+    ActorsAndChannels.channels)
   (inline_tests)
   (preprocess
     (pps
