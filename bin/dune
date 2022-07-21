@@ -1,5 +1,5 @@
 (executable
-  (public_name project)
+  (public_name example)
   (name main)
   (libraries
     core

@@ -16,12 +16,6 @@ let ch_expr = Channels.(
     
 let ch_string = Channels.(serialize ch_expr)
 let act_string = Ch2Act.(translate ch_string)
-(* 
-let _ =
-  print_endline "CH -----------" ;
-  print_endline ch_string ;
-  print_endline "ACT ----------" ;
-  print_endline act_string *)
 
 let ch_res = 
   print_endline "EXECUTING CH -----" ;
