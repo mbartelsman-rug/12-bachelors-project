@@ -16,14 +16,14 @@ The library is composed of 5 modules: `Actors`, `Channels`, `Act2Ch`, `Ch2Act`, 
 
 - `execute: string -> string`: parses and evaluates a program, producing a string displaying the results of the computation.
 - `parse: string -> expr_t`: parses a string into a syntax tree of the langauge
-- `evaluate: ?(print:bool) -> expr_t -> (string * expr_t) list`: evaluates a syntax tree, producing a list of pairs containing process IDs and their respective results.
+- `evaluate: ?(print:bool) -> expr_t -> (string * expr_t) list`: evaluates a syntax tree, producing a list of pairs containing process IDs and their respective results. `print` makes it so intermediate reductions are displayed during evaluation.
 - `serialize: expr_t -> string`: Serializes an expression into a string
 
 #### `Act2Ch` and `Ch2Act`
 
 - `translate: string -> string`: parses and and translates a program from one language into the other.
 - `parse: string -> expr_t`: parses a string into a syntax tree of the langauge
-- `evaluate: ?(print:bool) -> expr_t -> (string * expr_t) list`: translates a syntax tree of one language into the other
+- `evaluate: ?(print:bool) -> expr_t -> (string * expr_t) list`: translates a syntax tree of one language into the other `print` makes it so intermediate reductions are displayed during evaluation.
 - `serialize: expr_t -> string`: Serializes an expression into a string
 
 #### `Common`
